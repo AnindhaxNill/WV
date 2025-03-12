@@ -12,6 +12,7 @@ class VWARScannerGUI:
         self.root = root
         self.root.title("VWAR Scanner")
         self.rule_folder = os.path.join(os.getcwd(), "yara")
+        self.backup_folder = os.path.join(os.getcwd(), "backup")
         self.quarantine_folder = os.path.join(os.getcwd(), "quarantine")
         self.target_path = None
         self.rules = None
@@ -53,16 +54,19 @@ class VWARScannerGUI:
         )
 
         # Buttons
-        Button(root, text="Select Target File", command=self.select_file).place(x=463.0, y=139.0, width=125.0, height=40.0)
-        Button(root, text="Select Target Folder", command=self.select_folder).place(x=463.0, y=189.0, width=125.0, height=40.0)
-        Button(root, text="Scan", command=self.start_scan_thread).place(x=485.0, y=239.0, width=73.0, height=25.0)
-        Button(root, text="Stop", command=self.stop_scanning).place(x=485.0, y=275.0, width=73.0, height=25.0)
+        Button(root, text="Select Target File", command=self.select_file).place(x=302.0, y=139.0, width=125.0, height=40.0)
+        Button(root, text="Select Target Folder", command=self.select_folder).place(x=302.0, y=195.0, width=125.0, height=40.0)
+        Button(root, text="Select File to Backup", command=self.select_backup_file).place(x=616.0, y=139.0, width=125.0, height=40.0)
+        Button(root, text="Restore from Backup", command=self.restore_backup).place(x=616.0, y=195.0, width=125.0, height=40.0)
+        Button(root, text="Scan", command=self.start_scan_thread).place(x=485.0, y=150.0, width=73.0, height=25.0)
+        Button(root, text="Stop", command=self.stop_scanning).place(x=485.0, y=195.0, width=73.0, height=25.0)
+       
 
         self.progress_label = Label(root, text="PROGRESS : 0%", bg="#12e012", fg="#000000", font=("Inter", 12 * -1))
         self.progress_label.place(x=476.0, y=311.0)
 
         self.progress = Progressbar(root, orient="horizontal", length=350, mode="determinate")
-        self.progress.place(x=354, y=336)
+        self.progress.place(x=354, y=350)
 
         # Matched and Tested Files Sections
         canvas.create_rectangle(0.0, 432.0, 485.0, 486.0, fill="#AE0505", outline="")
@@ -84,6 +88,7 @@ class VWARScannerGUI:
         """Ensure required folders exist."""
         os.makedirs(self.rule_folder, exist_ok=True)
         os.makedirs(self.quarantine_folder, exist_ok=True)
+        os.makedirs(self.backup_folder, exist_ok=True)
 
     def fetch_and_generate_yara_rules(self):
         """Fetch YARA rules from a URL and write them into categorized .yar files."""
@@ -301,6 +306,34 @@ class VWARScannerGUI:
     #             self.log(f"[ERROR] No record of {original_name} in quarantine.", "load")
     #     else:
     #         self.log("[ERROR] Invalid file selected for restoration.", "load")
+    
+    
+
+    def select_backup_file(self):
+        """Allow user to select a file to backup."""
+        file_path = filedialog.askopenfilename(title="Select File to Backup", filetypes=(("All files", "*.*"),))
+        if file_path:
+            backup_path = os.path.join(self.backup_folder, os.path.basename(file_path) + ".backup")
+            try:
+                shutil.copy(file_path, backup_path)
+                self.log(f"[BACKUP] {file_path} -> {backup_path}", "load")
+            except Exception as e:
+                self.log(f"[ERROR] Failed to backup {file_path}: {e}", "load")
+
+    def restore_backup(self):
+        """Restore a backup file."""
+        file_path = filedialog.askopenfilename(initialdir=self.backup_folder, title="Select Backup to Restore",
+                                               filetypes=(("Backup files", "*.backup"),))
+        if file_path:
+            original_name = os.path.basename(file_path).replace(".backup", "")
+            restore_path = filedialog.asksaveasfilename(initialfile=original_name, title="Save Restored File")
+            if restore_path:
+                try:
+                    shutil.copy(file_path, restore_path)
+                    self.log(f"[RESTORED] {file_path} -> {restore_path}", "load")
+                except Exception as e:
+                    self.log(f"[ERROR] Failed to restore {file_path}: {e}", "load")
+    
 
     def stop_scanning(self):
         self.stop_scan = True
