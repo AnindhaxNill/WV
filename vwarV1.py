@@ -8,8 +8,7 @@ import requests
 from tkinter import Toplevel, Listbox
 import time
 import base64
-import hashlib
-
+from datetime import datetime
 
 
 def decode_base64(encoded_string):
@@ -242,14 +241,61 @@ class VWARScannerGUI:
     #     # Button to delete files
     #     Button(quarantine_window, text="Delete Selected File", command=self.delete_selected_file, bg="red", fg="white").pack(pady=5)
 
+    # def show_quarantine_window(self):
+        
+    #     """Display a window with quarantined files, extracting timestamp and original location."""
+    #     quarantine_window = Toplevel(self.root)
+    #     quarantine_window.title("Quarantined Files")
+    #     quarantine_window.geometry("700x400")
+    #     quarantine_window.configure(bg="#009AA5")
+
+    #     self.quarantine_listbox = Listbox(quarantine_window, bg="white", fg="black", font=("Inter", 12), selectmode="single")
+    #     self.quarantine_listbox.pack(padx=20, pady=10, fill="both", expand=True)
+
+    #     # Load quarantined files dynamically
+    #     self.quarantined_files = {}
+        
+    #     for index, file_name in enumerate(os.listdir(self.quarantine_folder), start=1):
+    #         quarantined_path = os.path.join(self.quarantine_folder, file_name)
+            
+    #         if os.path.isfile(quarantined_path) and file_name.endswith(".quarantined"):
+    #             parts = file_name.rsplit("__", 2)
+    #             if len(parts) < 3:
+    #                 continue  # Invalid format, skip
+                
+    #             fname, timestamp, encoded_path = parts
+
+    #             # Decode original file path
+    #             original_path =decode_base64(encoded_path)
+
+    #             # Format timestamp
+    #             formatted_time = f"{timestamp[:4]}-{timestamp[4:6]}-{timestamp[6:8]} {timestamp[8:10]}:{timestamp[10:12]}:{timestamp[12:]}"
+
+    #             # Display in GUI
+    #             print(original_path)
+    #             display_text = f"{index}. {fname}...  | Quarantined: {formatted_time} | From: {original_path}"
+    #             self.quarantine_listbox.insert("end", display_text)
+
+    #             # Store information for restoring
+    #             self.quarantined_files[file_name] = (quarantined_path, original_path)
+
+    #     # Buttons
+    #     Button(quarantine_window, text="Delete Selected File", command=self.delete_selected_file, bg="red", fg="white").pack(pady=5)
+
     def show_quarantine_window(self):
         """Display a window with quarantined files, extracting timestamp and original location."""
-        quarantine_window = Toplevel(self.root)
-        quarantine_window.title("Quarantined Files")
-        quarantine_window.geometry("700x400")
-        quarantine_window.configure(bg="#009AA5")
+        if hasattr(self, "quarantine_window") and self.quarantine_window.winfo_exists():
+            self.quarantine_window.lift()  # Bring existing window to the front
+            return
+        
+        self.quarantine_window = Toplevel(self.root)
+        self.quarantine_window.title("Quarantined Files")
+        self.quarantine_window.geometry("700x400")
+        self.quarantine_window.configure(bg="#009AA5")
 
-        self.quarantine_listbox = Listbox(quarantine_window, bg="white", fg="black", font=("Inter", 12), selectmode="single")
+        self.quarantine_listbox = Listbox(
+            self.quarantine_window, bg="white", fg="black", font=("Inter", 12), selectmode="single"
+        )
         self.quarantine_listbox.pack(padx=20, pady=10, fill="both", expand=True)
 
         # Load quarantined files dynamically
@@ -262,46 +308,51 @@ class VWARScannerGUI:
                 parts = file_name.rsplit("__", 2)
                 if len(parts) < 3:
                     continue  # Invalid format, skip
-                
                 fname, timestamp, encoded_path = parts
 
                 # Decode original file path
-                original_path =decode_base64(encoded_path)
+                original_path = decode_base64(encoded_path)
 
                 # Format timestamp
                 formatted_time = f"{timestamp[:4]}-{timestamp[4:6]}-{timestamp[6:8]} {timestamp[8:10]}:{timestamp[10:12]}:{timestamp[12:]}"
 
                 # Display in GUI
-                print(original_path)
-                display_text = f"{index}. {fname}...  | Quarantined: {formatted_time} | From: {original_path}"
+                n = "\n"
+                display_text = f"{index}. {fname}...  | Quarantined: {formatted_time}{n} | From: {original_path}"
                 self.quarantine_listbox.insert("end", display_text)
 
                 # Store information for restoring
                 self.quarantined_files[file_name] = (quarantined_path, original_path)
 
         # Buttons
-        Button(quarantine_window, text="Delete Selected File", command=self.delete_selected_file, bg="red", fg="white").pack(pady=5)
+        
+                # Button to restore files
+        # Button( self.quarantine_window, text="Restore Selected File", command=self.restore_selected_file, bg="green", fg="white").pack(pady=5)
+        
+        
+        Button(
+            self.quarantine_window, text="Delete Selected File", command=self.delete_selected_file, bg="red", fg="white"
+        ).pack(pady=5)
 
 
+    # def restore_selected_file(self):
+    #     """Restore a selected quarantined file to its original location."""
+    #     selected_index = self.quarantine_listbox.curselection()
+    #     if not selected_index:
+    #         messagebox.showwarning("No Selection", "Please select a file to restore.")
+    #         return
 
-    def restore_selected_file(self):
-        """Restore a selected quarantined file to its original location."""
-        selected_index = self.quarantine_listbox.curselection()
-        if not selected_index:
-            messagebox.showwarning("No Selection", "Please select a file to restore.")
-            return
+    #     selected_file = self.quarantine_listbox.get(selected_index)
+    #     quarantined_path, original_path = self.quarantined_files[selected_file]
 
-        selected_file = self.quarantine_listbox.get(selected_index)
-        quarantined_path, original_path = self.quarantined_files[selected_file]
-
-        try:
-            shutil.move(quarantined_path, original_path)
-            del self.quarantined_files[selected_file]  # Remove from the dictionary
-            self.quarantine_listbox.delete(selected_index)  # Remove from listbox
-            self.log(f"[RESTORED] {selected_file} restored to {original_path}", "load")
-            messagebox.showinfo("Success", f"{selected_file} has been restored successfully!")
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to restore {selected_file}: {e}")
+    #     try:
+    #         shutil.move(quarantined_path, original_path)
+    #         del self.quarantined_files[selected_file]  # Remove from the dictionary
+    #         self.quarantine_listbox.delete(selected_index)  # Remove from listbox
+    #         self.log(f"[RESTORED] {selected_file} restored to {original_path}", "load")
+    #         messagebox.showinfo("Success", f"{selected_file} has been restored successfully!")
+    #     except Exception as e:
+    #         messagebox.showerror("Error", f"Failed to restore {selected_file}: {e}")
 
     def delete_selected_file(self):
         """Delete a selected quarantined file permanently."""
@@ -569,23 +620,77 @@ class VWARScannerGUI:
 
 
 
+    # def select_backup_file(self):
+    #     """Backup selected file."""
+    #     file_path = filedialog.askopenfilename(title="Select File to Backup", filetypes=[("All files", "*.*")])
+    #     if file_path:
+    #         backup_path = os.path.join(self.backup_folder, os.path.basename(file_path) + ".backup")
+    #         shutil.copy(file_path, backup_path)
+    
+    
+    
+    
+    
+    
     def select_backup_file(self):
-        """Backup selected file."""
-        file_path = filedialog.askopenfilename(title="Select File to Backup", filetypes=[("All files", "*.*")])
+        """Allow user to select a file to back up in a date-based directory."""
+        file_path = filedialog.askopenfilename(title="Select File to Backup", filetypes=(("All files", "*.*"),))
         if file_path:
-            backup_path = os.path.join(self.backup_folder, os.path.basename(file_path) + ".backup")
-            shutil.copy(file_path, backup_path)
+            today = datetime.now().strftime("%Y-%m-%d")  # Get current date
+            daily_backup_folder = os.path.join(self.backup_folder, today)  # Backup folder for today
 
+            os.makedirs(daily_backup_folder, exist_ok=True)  # Ensure folder exists
+
+            backup_path = os.path.join(daily_backup_folder, os.path.basename(file_path) + ".backup")
+            
+            try:
+                shutil.copy(file_path, backup_path)  # Copy file to daily folder
+                self.log(f"[BACKUP] {file_path} -> {backup_path}", "load")
+            except Exception as e:
+                self.log(f"[ERROR] Failed to backup {file_path}: {e}", "load")
+                
+                
+                
+                
+                
+                
+                
+                
+    # def restore_backup(self):
+    #     """Restore a backup file."""
+    #     file_path = filedialog.askopenfilename(initialdir=self.backup_folder, title="Select Backup to Restore",
+    #                                            filetypes=[("Backup files", "*.backup")])
+    #     if file_path:
+    #         original_name = os.path.basename(file_path).replace(".backup", "")
+    #         restore_path = filedialog.asksaveasfilename(initialfile=original_name, title="Save Restored File")
+    #         if restore_path:
+    #             shutil.copy(file_path, restore_path)
     def restore_backup(self):
-        """Restore a backup file."""
-        file_path = filedialog.askopenfilename(initialdir=self.backup_folder, title="Select Backup to Restore",
-                                               filetypes=[("Backup files", "*.backup")])
+        """Restore a backup file from the daily backup folder."""
+        today = datetime.now().strftime("%Y-%m-%d")  # Current date
+        backup_folders = [f for f in os.listdir(self.backup_folder) if os.path.isdir(os.path.join(self.backup_folder, f))]
+
+        if not backup_folders:
+            messagebox.showinfo("Restore Backup", "No backups found.")
+            return
+
+        # Let user choose a date folder
+        selected_date = filedialog.askdirectory(initialdir=self.backup_folder, title="Select Backup Date Folder")
+        if not selected_date or not os.path.exists(selected_date):
+            return
+
+        # Let user select a file from that date's backup folder
+        file_path = filedialog.askopenfilename(initialdir=selected_date, title="Select Backup to Restore",
+                                            filetypes=(("Backup files", "*.backup"),))
         if file_path:
             original_name = os.path.basename(file_path).replace(".backup", "")
             restore_path = filedialog.asksaveasfilename(initialfile=original_name, title="Save Restored File")
             if restore_path:
-                shutil.copy(file_path, restore_path)
-
+                try:
+                    shutil.copy(file_path, restore_path)
+                    self.log(f"[RESTORED] {file_path} -> {restore_path}", "load")
+                except Exception as e:
+                    self.log(f"[ERROR] Failed to restore {file_path}: {e}", "load")
 
 
 
