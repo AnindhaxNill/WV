@@ -9,6 +9,7 @@ from tkinter import Toplevel, Listbox
 import time
 import base64
 from datetime import datetime
+import re
 
 
 def decode_base64(encoded_string):
@@ -126,6 +127,9 @@ class VWARScannerGUI:
         Button(home_page, text="Backup", command=lambda: self.show_page("backup"), bg="orange", fg="white",
                font=("Inter", 16)).place(x=400, y=300, width=200, height=50)
 
+
+
+
     def create_scanning_page(self):
         
         
@@ -143,8 +147,6 @@ class VWARScannerGUI:
         Button(scanning_page, text="Back", command=lambda: self.show_page("home"), bg="gray", fg="white",
                font=("Inter", 12)).place(x=10, y=10, width=80, height=30)
 
-        # Button(scanning_page, text="Select Target File", command=self.select_file).place(x=302, y=139, width=125, height=40)
-        # Button(scanning_page, text="Select Target Folder", command=self.select_folder).place(x=302, y=195, width=125, height=40)
         Button(scanning_page, text="Select Target File", command=self.select_file).place(x=302.0, y=139.0, width=125.0, height=40.0)
         Button(scanning_page, text="Select Target Folder", command=self.select_folder).place(x=302.0, y=195.0, width=125.0, height=40.0)
         Button(scanning_page, text="Scan", command=self.start_scan_thread, bg="green", fg="white").place(x=485, y=150, width=73, height=25)
@@ -154,25 +156,14 @@ class VWARScannerGUI:
         Button(scanning_page, text="Show Quarantined Files", command=self.show_quarantine_window, bg="purple", fg="white",
        font=("Inter", 12)).place(x=700, y=195, width=200, height=40)
 
-
-        # self.progress_label = Label(scanning_page, text="PROGRESS : 0%", bg="#12e012", fg="black", font=("Inter", 12))
-        # self.progress_label.place(x=476, y=311)
         
         self.progress_label = Label(scanning_page, text="PROGRESS : 0%", bg="#12e012", fg="#000000", font=("Inter", 12 * -1))
         self.progress_label.place(x=476.0, y=311.0)
 
-        # self.progress = Progressbar(scanning_page, orient="horizontal", length=350, mode="determinate")
-        # self.progress.place(x=354, y=350)
         
         self.progress = Progressbar(scanning_page, orient="horizontal", length=350, mode="determinate")
         self.progress.place(x=354, y=350)
-        
-        
-        # self.matched_text = Text(scanning_page, bg="#D9D9D9", fg="black", wrap="word")
-        # self.matched_text.place(x=0, y=488, width=485, height=232)
 
-        # self.tested_text = Text(scanning_page, bg="#D9D9D9", fg="black", wrap="word")
-        # self.tested_text.place(x=557, y=488, width=485, height=232)
         
         
         self.LOAD_TEXT = Text(scanning_page, bg="#D9D9D9", fg="black", wrap="word")
@@ -195,92 +186,6 @@ class VWARScannerGUI:
         self.tested_text.place(x=557, y=488, width=485, height=232)
 
 
-
-    # def show_quarantine_window(self):
-    #     """Display a window with quarantined files fetched from the quarantine folder."""
-    #     quarantine_window = Toplevel(self.root)
-    #     quarantine_window.title("Quarantined Files")
-    #     quarantine_window.geometry("500x400")
-    #     quarantine_window.configure(bg="#009AA5")
-
-    #     # Label(quarantine_window, text="Quarantined Files", font=("Inter", 16), bg="#009AA5", fg="white").pack(pady=10)
-
-    #     self.quarantine_listbox = Listbox(quarantine_window, bg="white", fg="black", font=("Inter", 12), selectmode="single")
-    #     self.quarantine_listbox.pack(padx=20, pady=10, fill="both", expand=True)
-
-    #     # Load quarantined files dynamically from the quarantine folder
-    #     self.quarantined_files = {}
-    #     for index, file_name in enumerate(os.listdir(self.quarantine_folder), start=1):
-    #             quarantined_path = os.path.join(self.quarantine_folder, file_name)
-    #             # print(quarantined_path)
-    #             if os.path.isfile(quarantined_path):
-    #                 original_path = quarantined_path.replace(".quarantined", "")  # Assume original name before renaming
-                    
-    #                 parts = original_path.rsplit("__", 2)
-    #                 if len(parts) < 3:
-    #                     return None  # Invalid format
-    #                 encoded_path = parts[-1].replace(".quarantined", "")
-    #                 print(encoded_path)
-    #                # Decode the base64 string
-    #                 padding_needed = len(encoded_path) % 4
-    #                 if padding_needed:
-    #                     encoded_string += '=' * (4 - padding_needed)
-
-    #                 # Decode the base64 string
-    #                 decoded_string = base64.urlsafe_b64decode(encoded_string).decode()
-
-    #                 # Print the decoded result
-    #                 print(decoded_string)
-    #                 # print(encoded_path)
-    #             self.quarantined_files[file_name] = (quarantined_path, original_path)
-    #             self.quarantine_listbox.insert("end", f"{index}. {file_name}")  # Proper numbering
-
-    #     # Button to restore files
-    #     # Button(quarantine_window, text="Restore Selected File", command=self.restore_selected_file, bg="green", fg="white").pack(pady=5)
-
-    #     # Button to delete files
-    #     Button(quarantine_window, text="Delete Selected File", command=self.delete_selected_file, bg="red", fg="white").pack(pady=5)
-
-    # def show_quarantine_window(self):
-        
-    #     """Display a window with quarantined files, extracting timestamp and original location."""
-    #     quarantine_window = Toplevel(self.root)
-    #     quarantine_window.title("Quarantined Files")
-    #     quarantine_window.geometry("700x400")
-    #     quarantine_window.configure(bg="#009AA5")
-
-    #     self.quarantine_listbox = Listbox(quarantine_window, bg="white", fg="black", font=("Inter", 12), selectmode="single")
-    #     self.quarantine_listbox.pack(padx=20, pady=10, fill="both", expand=True)
-
-    #     # Load quarantined files dynamically
-    #     self.quarantined_files = {}
-        
-    #     for index, file_name in enumerate(os.listdir(self.quarantine_folder), start=1):
-    #         quarantined_path = os.path.join(self.quarantine_folder, file_name)
-            
-    #         if os.path.isfile(quarantined_path) and file_name.endswith(".quarantined"):
-    #             parts = file_name.rsplit("__", 2)
-    #             if len(parts) < 3:
-    #                 continue  # Invalid format, skip
-                
-    #             fname, timestamp, encoded_path = parts
-
-    #             # Decode original file path
-    #             original_path =decode_base64(encoded_path)
-
-    #             # Format timestamp
-    #             formatted_time = f"{timestamp[:4]}-{timestamp[4:6]}-{timestamp[6:8]} {timestamp[8:10]}:{timestamp[10:12]}:{timestamp[12:]}"
-
-    #             # Display in GUI
-    #             print(original_path)
-    #             display_text = f"{index}. {fname}...  | Quarantined: {formatted_time} | From: {original_path}"
-    #             self.quarantine_listbox.insert("end", display_text)
-
-    #             # Store information for restoring
-    #             self.quarantined_files[file_name] = (quarantined_path, original_path)
-
-    #     # Buttons
-    #     Button(quarantine_window, text="Delete Selected File", command=self.delete_selected_file, bg="red", fg="white").pack(pady=5)
 
     def show_quarantine_window(self):
         """Display a window with quarantined files, extracting timestamp and original location."""
@@ -334,26 +239,6 @@ class VWARScannerGUI:
             self.quarantine_window, text="Delete Selected File", command=self.delete_selected_file, bg="red", fg="white"
         ).pack(pady=5)
 
-
-    # def restore_selected_file(self):
-    #     """Restore a selected quarantined file to its original location."""
-    #     selected_index = self.quarantine_listbox.curselection()
-    #     if not selected_index:
-    #         messagebox.showwarning("No Selection", "Please select a file to restore.")
-    #         return
-
-    #     selected_file = self.quarantine_listbox.get(selected_index)
-    #     quarantined_path, original_path = self.quarantined_files[selected_file]
-
-    #     try:
-    #         shutil.move(quarantined_path, original_path)
-    #         del self.quarantined_files[selected_file]  # Remove from the dictionary
-    #         self.quarantine_listbox.delete(selected_index)  # Remove from listbox
-    #         self.log(f"[RESTORED] {selected_file} restored to {original_path}", "load")
-    #         messagebox.showinfo("Success", f"{selected_file} has been restored successfully!")
-    #     except Exception as e:
-    #         messagebox.showerror("Error", f"Failed to restore {selected_file}: {e}")
-
     def delete_selected_file(self):
         """Delete a selected quarantined file permanently."""
         selected_index = self.quarantine_listbox.curselection()
@@ -375,65 +260,199 @@ class VWARScannerGUI:
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to delete {selected_file}: {e}")
 
+    # def fetch_and_generate_yara_rules(self):
+    #     """Fetch YARA rules from a URL and write them into categorized .yar files."""
+    #     try:
+    #         url = "https://library.bitss.fr/windows.php"
+    #         response = requests.get(url)
+    #         json_data = response.json()
+
+    #         rule_files = {}
+    #         for rule in json_data:
+    #             # rulename = rule.get("rulename", "Unknown_Rule")
+    #             category = rule.get("categoryname", "uncategorized").replace(" ", "_").lower()
+    #             conditions = rule.get("conditions", [])
+
+    #             if category not in rule_files:
+    #                 rule_files[category] = []
+
+    #             for condition in conditions:
+    #                 rule_string = condition.get("string", "")
+    #                 if rule_string:
+    #                     rule_files[category].append(rule_string.strip('""'))
+
+    #         for category, rules in rule_files.items():
+    #             output_file = os.path.join(self.rule_folder, f"{category}.yar")
+    #             with open(output_file, "w") as file:
+    #                 for rule in rules:
+    #                     file.write(rule + "\n\n")
+
+    #         self.log("[INFO] YARA rules categorized and saved.", "load")
+    #     except Exception as e:
+    #         self.log(f"[ERROR] Failed to fetch YARA rules: {e}", "load")
+
     def fetch_and_generate_yara_rules(self):
-        """Fetch YARA rules from a URL and write them into categorized .yar files."""
-        try:
-            url = "https://library.bitss.fr/windows.php"
-            response = requests.get(url)
-            json_data = response.json()
+            """Fetch YARA rules from a URL and write them into categorized .yar files."""
+            try:
+                url = "https://library.bitss.fr/windows.php"
+                response = requests.get(url)
+                response.raise_for_status()  # Check for request errors
 
-            rule_files = {}
-            for rule in json_data:
-                # rulename = rule.get("rulename", "Unknown_Rule")
-                category = rule.get("categoryname", "uncategorized").replace(" ", "_").lower()
-                conditions = rule.get("conditions", [])
+                json_data = response.json()
+                if not json_data:
+                    self.log("[WARNING] No YARA rules found.", "load")
+                    return
 
-                if category not in rule_files:
-                    rule_files[category] = []
+                # rule_files = {}
 
-                for condition in conditions:
-                    rule_string = condition.get("string", "")
-                    if rule_string:
-                        rule_files[category].append(rule_string.strip('""'))
+                for rule in json_data:
+                    # Default to 'uncategorized' category if not found
+                    # category = rule.get("categoryname", "uncategorized").replace(" ", "_").lower()
+                    # conditions = rule.get("conditions", [])
+                    category = rule.get("categoryname", "uncategorized")  # Default to 'uncategorized' if no category
+                    rule_name = rule.get("rulename", "unknown_rule")  # Use 'unknown_rule' if no name is provided
+                    rule_content = rule.get("conditions", [{}])[0].get("string", "")
+                    category_dir = os.path.join(self.rule_folder, category)
+                    os.makedirs(category_dir, exist_ok=True)  # Create category directory if it doesn't exist
 
-            for category, rules in rule_files.items():
-                output_file = os.path.join(self.rule_folder, f"{category}.yar")
-                with open(output_file, "w") as file:
-                    for rule in rules:
-                        file.write(rule + "\n\n")
+                    file_path = os.path.join(category_dir, f"{rule_name}.yar")
 
-            self.log("[INFO] YARA rules categorized and saved.", "load")
-        except Exception as e:
-            self.log(f"[ERROR] Failed to fetch YARA rules: {e}", "load")
+                    with open(file_path, "w", encoding="utf-8") as f:
+                        f.write(rule_content)
+                    
+                    # print(f"Saved: {file_path}")
 
+                    # if category not in category:
+                    #     rule_files[category] = []
+
+                    # for condition in rule_content:
+                    #     rule_string = condition.get("string", "")
+                    #     if rule_string:
+                    #         # Removing unnecessary quote marks around rule string
+                    #         rule_files[category].append(rule_string.strip('""'))
+
+                # Now save the categorized rules into individual .yar files
+                # for category, rules in rule_files.items():
+                #     # Create the category folder if it doesn't exist
+                #     category_folder = os.path.join(self.rule_folder, category)
+                #     os.makedirs(category_folder, exist_ok=True)
+
+                #     output_file = os.path.join(category_folder, f"{category}.yar")
+                #     with open(output_file, "w", encoding="utf-8") as file:
+                #         for rule in rules:
+                #             file.write(rule + "\n\n")
+
+                    
+                # self.log(f"[INFO] Rules for '{category}' saved in {output_file}.", "load")
+                self.log("[INFO] YARA rules categorized and saved successfully.", "load")
+
+            except requests.RequestException as e:
+                self.log(f"[ERROR] Failed to fetch YARA rules: {e}", "load")
+            except Exception as e:
+                self.log(f"[ERROR] An error occurred: {e}", "load")
+
+
+    # def load_rules(self):
+    #     try:
+    #         rule_files = [
+    #             os.path.join(self.rule_folder, file)
+    #             for file in os.listdir(self.rule_folder)
+    #             if file.endswith(".yar")
+    #         ]
+    #         if not rule_files:
+    #             raise FileNotFoundError("No .yar files found in the 'yara' folder.")
+            
+    #         valid_rule_files = {}
+    #         for file_path in rule_files:
+    #             try:
+    #                 yara.compile(filepath=file_path)
+    #                 valid_rule_files[os.path.basename(file_path)] = file_path
+              
+    #             except (yara.SyntaxError, yara.CompileError) as e:
+    #                 print(f"[ERROR] Failed to compile YARA file {file_path}: {e}")
+
+    #         if valid_rule_files:
+    #             self.rules = yara.compile(filepaths=valid_rule_files)
+    #             self.log(f"[INFO] Successfully compiled {len(valid_rule_files)} YARA rule files.", "load")
+    #         else:
+    #             self.log("[ERROR] No valid YARA rules to compile.", "load")
+    #     except Exception as e:
+    #         self.log(f"[ERROR] Failed to load YARA rules: {e}", "load")
+    
+
+    # def load_rules(self):
+    #     try:
+    #         # Initialize a dictionary to store valid rule files
+    #         valid_rule_files = {}
+
+    #         # Loop through each subdirectory (category) in the 'yara' directory
+    #         for root, dirs, files in os.walk(self.rule_folder):
+    #             for file in files:
+    #                 if file.endswith(".yar"):
+    #                     file_path = os.path.join(root, file)
+                        
+    #                     # Try to compile each YARA rule file
+    #                     try:
+    #                         yara.compile(filepath=file_path)
+    #                         valid_rule_files[os.path.basename(file_path)] = file_path
+    #                         print(f"[INFO] Successfully compiled {file_path}")
+    #                     except (yara.SyntaxError, yara.CompileError) as e:
+    #                         print(f"[ERROR] Failed to compile YARA file {file_path}: {e}")
+
+    #         if valid_rule_files:
+    #             # If there are valid rule files, compile them all together
+    #             self.rules = yara.compile(filepaths=valid_rule_files)
+    #             self.log(f"[INFO] Successfully compiled {len(valid_rule_files)} YARA rule files.", "load")
+    #         else:
+    #             self.log("[ERROR] No valid YARA rules to compile.", "load")
+
+    #     except Exception as e:
+    #         self.log(f"[ERROR] Failed to load YARA rules: {e}", "load")
+    
+    
     def load_rules(self):
         try:
-            rule_files = [
-                os.path.join(self.rule_folder, file)
-                for file in os.listdir(self.rule_folder)
-                if file.endswith(".yar")
-            ]
-            if not rule_files:
-                raise FileNotFoundError("No .yar files found in the 'yara' folder.")
-            
+            # Initialize a dictionary to store valid rule files
             valid_rule_files = {}
-            for file_path in rule_files:
-                try:
-                    yara.compile(filepath=file_path)
-                    valid_rule_files[os.path.basename(file_path)] = file_path
-                # except yara.Error as e:
-                #     print(f"[ERROR] Failed to compile YARA file {file_path}: {e}")
-                except (yara.SyntaxError, yara.CompileError) as e:
-                    print(f"[ERROR] Failed to compile YARA file {file_path}: {e}")
+            failed_files = []  # To store information about failed files
+
+            # Loop through each subdirectory (category) in the 'yara' directory
+            for root, dirs, files in os.walk(self.rule_folder):
+                for file in files:
+                    if file.endswith(".yar"):
+                        file_path = os.path.join(root, file)
+
+                        # Try to compile each YARA rule file
+                        try:
+                            yara.compile(filepath=file_path)
+                            valid_rule_files[os.path.basename(file_path)] = file_path
+                            # print(f"[INFO] Successfully compiled {file_path}")
+                        except Exception as e:
+                            # Add the failed file to the list
+                            failed_files.append(f"Failed to compile {file_path}: {e}")
+                            # print(f"[ERROR] Failed to compile YARA file {file_path}: {e}")
 
             if valid_rule_files:
+                # If there are valid rule files, compile them all together
                 self.rules = yara.compile(filepaths=valid_rule_files)
                 self.log(f"[INFO] Successfully compiled {len(valid_rule_files)} YARA rule files.", "load")
             else:
                 self.log("[ERROR] No valid YARA rules to compile.", "load")
+
+            # If there were any failed files, log them to a text file
+            if failed_files:
+                failed_log_path = os.path.join(self.rule_folder, "failed_loads.txt")
+                # print(failed_log_path)
+                with open(failed_log_path, "w", encoding="utf-8") as log_file:
+                    for failed_file in failed_files:
+                        log_file.write(f"{failed_file}\n")
+                self.log(f"[INFO] Failed to load {len(failed_files)} YARA rule files. See 'failed_loads.txt' for details.", "load")
+            else:
+                self.log("[INFO] All YARA files loaded successfully.", "load")
+
         except Exception as e:
             self.log(f"[ERROR] Failed to load YARA rules: {e}", "load")
-      
+        
     def select_file(self):
         target = filedialog.askopenfilename(
             title="Select File to Scan",
@@ -505,37 +524,54 @@ class VWARScannerGUI:
         if not self.stop_scan:
             self.log("[INFO] Directory scan completed.", "load")
 
+    # def scan_file(self, file_path):
+    #     if self.stop_scan:
+    #         return
+    #     try:
+    #         matches = self.rules.match(file_path, timeout=60)
+    #         self.log(f"{file_path} \n", "tested")
+    #         if matches:
+    #             print(matches)
+    #             yara_file = os.path.splitext(os.path.basename(matches[0].namespace))[0]  # Remove .yar extension
+
+    #             self.log(f"[MATCH] {file_path}\nRule: {matches[0].rule}\nMalware Type: {yara_file}\n\n", "matched")
+
+    #             self.quarantine_file(file_path)  # Move matched file to quarantine
+      
+    #     except (yara.SyntaxError, yara.CompileError) as e:
+    #         self.log(f"[ERROR] Failed to scan file '{file_path}': {e}", "tested")
+        
+        
+        
+        
+        
     def scan_file(self, file_path):
         if self.stop_scan:
             return
         try:
             matches = self.rules.match(file_path, timeout=60)
             self.log(f"{file_path} \n", "tested")
+            
             if matches:
+                print(matches)
+                # Get the namespace (YARA file name without extension)
                 yara_file = os.path.splitext(os.path.basename(matches[0].namespace))[0]  # Remove .yar extension
-                self.log(f"[MATCH] {file_path}\nRule: {matches[0].rule}\nMalware Type: {yara_file}\n\n", "matched")
 
+                # Get the folder name where the YARA rule is located
+                rule_folder = os.path.dirname(matches[0].namespace)
+                folder_name = os.path.basename(rule_folder)
+
+                print(f"Match found in rule: {matches[0].rule}")
+                print(f"YARA file located in folder: {folder_name}")
+                
+                # Log the match information with the folder name
+                self.log(f"[MATCH] {file_path}\nRule: {matches[0].rule}\nMalware Type: {yara_file}\nRule Folder: {folder_name}\n\n", "matched")
+
+                # Quarantine the file
                 self.quarantine_file(file_path)  # Move matched file to quarantine
-        # except yara.Error as e:
-        #     self.log(f"[ERROR] Failed to scan file '{file_path}': {e}", "tested")
+
         except (yara.SyntaxError, yara.CompileError) as e:
             self.log(f"[ERROR] Failed to scan file '{file_path}': {e}", "tested")
-        
-    # def quarantine_file(self, file_path):
-    #     """Move matched files to a quarantine folder."""
-    #     if not os.path.exists(self.quarantine_folder):
-    #         os.makedirs(self.quarantine_folder)
-
-    #     file_name = os.path.basename(file_path)
-    #     quarantined_path = os.path.join(self.quarantine_folder, file_name + ".quarantined")
-
-    #     try:
-    #         shutil.move(file_path, quarantined_path)
-    #         self.quarantined_files[file_name] = (quarantined_path, file_path)
-    #         self.log(f"[QUARANTINED] {file_path} moved to {quarantined_path}", "matched")
-    #     except Exception as e:
-    #         self.log(f"[ERROR] Failed to quarantine {file_path}: {e}", "matched")
-            
 
     def quarantine_file(self, file_path):
         """Move matched files to a quarantine folder and encode metadata in the filename."""
@@ -549,10 +585,7 @@ class VWARScannerGUI:
         # Encode original file path in base64 to avoid special character issues
         encoded_path = base64.urlsafe_b64encode(file_p.encode()).decode()
         encoded_path = encoded_path[:MAX_ENCODED_LENGTH]  # Trim long paths
-        
-        # encoded_path = hashlib.sha256(file_path.encode()).hexdigest()
-        # print(file_p)
-        # print(f"{file_name},{timestamp},{encoded_path}")
+ 
         # New filename format: original_name__timestamp__encoded_path.quarantined
         quarantined_name = f"{file_name}__{timestamp}__{encoded_path}.quarantined"
         quarantined_path = os.path.join(self.quarantine_folder, quarantined_name)
@@ -566,37 +599,7 @@ class VWARScannerGUI:
     
     
     
-    # def quarantine_file(self, file_path):
-    #     """Move matched files to a quarantine folder and encode metadata in the filename."""
-    #     if not os.path.exists(self.quarantine_folder):
-    #         os.makedirs(self.quarantine_folder)
-
-    #     if not os.path.exists(file_path):
-    #         self.log(f"[ERROR] Source file does not exist: {file_path}", "matched")
-    #         return
-
-    #     file_name = os.path.basename(file_path)
-    #     timestamp = time.strftime("%Y%m%d%H%M%S")
-
-    #     # Use SHA-256 to encode the original file path (fixed 64-character length)
-    #     encoded_path = hashlib.sha256(file_path.encode()).hexdigest()
-
-    #     # Format: <original_file>__<timestamp>__<hashed_path>.quarantined
-    #     quarantined_name = f"{file_name}__{timestamp}__{encoded_path[:16]}.quarantined"
-    #     quarantined_path = os.path.join(self.quarantine_folder, quarantined_name)
-
-    #     try:
-    #         shutil.move(file_path, quarantined_path)  # Try moving
-    #     except Exception:
-    #         try:
-    #             os.rename(file_path, quarantined_path)  # Fallback rename
-    #         except Exception as e:
-    #             self.log(f"[ERROR] Failed to quarantine {file_path}: {e}", "matched")
-    #             return
-
-    #     self.log(f"[QUARANTINED] {file_path} → {quarantined_path} at {timestamp}", "matched")
-            
-            
+   
 
     def stop_scanning(self):
         """Stop the scanning process."""
@@ -618,19 +621,6 @@ class VWARScannerGUI:
 
 
 
-
-
-    # def select_backup_file(self):
-    #     """Backup selected file."""
-    #     file_path = filedialog.askopenfilename(title="Select File to Backup", filetypes=[("All files", "*.*")])
-    #     if file_path:
-    #         backup_path = os.path.join(self.backup_folder, os.path.basename(file_path) + ".backup")
-    #         shutil.copy(file_path, backup_path)
-    
-    
-    
-    
-    
     
     def select_backup_file(self):
         """Allow user to select a file to back up in a date-based directory."""
@@ -650,21 +640,6 @@ class VWARScannerGUI:
                 self.log(f"[ERROR] Failed to backup {file_path}: {e}", "load")
                 
                 
-                
-                
-                
-                
-                
-                
-    # def restore_backup(self):
-    #     """Restore a backup file."""
-    #     file_path = filedialog.askopenfilename(initialdir=self.backup_folder, title="Select Backup to Restore",
-    #                                            filetypes=[("Backup files", "*.backup")])
-    #     if file_path:
-    #         original_name = os.path.basename(file_path).replace(".backup", "")
-    #         restore_path = filedialog.asksaveasfilename(initialfile=original_name, title="Save Restored File")
-    #         if restore_path:
-    #             shutil.copy(file_path, restore_path)
     def restore_backup(self):
         """Restore a backup file from the daily backup folder."""
         today = datetime.now().strftime("%Y-%m-%d")  # Current date
