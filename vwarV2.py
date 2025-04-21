@@ -16,6 +16,7 @@ import time
 import threading
 import tkinter as tk
 from tkinter import messagebox
+import json
 
 
 
@@ -100,38 +101,50 @@ class VWARScannerGUI:
         self.show_page("home")
         
     def update_quarantine_listbox(self):
-        
+        """Refresh the quarantine listbox with latest quarantined files and metadata."""
         self.quarantine_listbox.delete(0, "end")
-        if os.path.exists(self.quarantine_folder):
-            files = os.listdir(self.quarantine_folder)
-            for file in files:
-                self.quarantine_listbox.insert("end", file)
-                return 
-        """Refresh the list of quarantined files in the auto scanning page."""
-        # self.quarantine_listbox.delete(0, "end")  # Clear existing entries
-        # index = 1
+        index = 1
 
-        # for file_name in os.listdir(self.quarantine_folder):
-        #     quarantined_path = os.path.join(self.quarantine_folder, file_name)
+        for file_name in os.listdir(self.quarantine_folder):
+            if not file_name.endswith(".quarantined"):
+                continue
 
-        #     if os.path.isfile(quarantined_path) and file_name.endswith(".quarantined"):
-        #         parts = file_name.rsplit("__", 2)
-        #         if len(parts) < 3:
-        #             continue  # Skip malformed entries
+            quarantined_path = os.path.join(self.quarantine_folder, file_name)
+            meta_path = quarantined_path + ".meta"
 
-        #         fname, timestamp, encoded_path = parts
+            if not os.path.exists(meta_path):
+                continue  # Skip files without metadata
 
-        #         # Decode original file path
-        #         original_path = decode_base64(encoded_path)
+            try:
+                with open(meta_path, "r") as meta_file:
+                    metadata = json.load(meta_file)
 
-        #         # Format timestamp
-        #         formatted_time = f"{timestamp[:4]}-{timestamp[4:6]}-{timestamp[6:8]} {timestamp[8:10]}:{timestamp[10:12]}:{timestamp[12:]}"
+                original_path = metadata.get("original_path", "Unknown")
+                timestamp = metadata.get("timestamp", "Unknown")
+                matched_rules = metadata.get("matched_rules", [])
 
-        #         # Display format
-        #         display_text = f"{index}. {fname}  | Quarantined: {formatted_time}\n   From: {original_path}"
-        #         self.quarantine_listbox.insert("end", display_text)
+                # Format timestamp for display
+                if len(timestamp) == 14:
+                    formatted_time = f"{timestamp[:4]}-{timestamp[4:6]}-{timestamp[6:8]} {timestamp[8:10]}:{timestamp[10:12]}:{timestamp[12:]}"
+                else:
+                    formatted_time = "Unknown"
 
-        #         index += 1       
+                rules_str = ", ".join(matched_rules) if matched_rules else "Unknown"
+
+                # Build display text
+                display_text = (
+                    f"{index}. File: {file_name.split('__')[0]}\n"
+                    f"   → Quarantined: {formatted_time}\n"
+                    f"   → From: {original_path}\n"
+                    f"   → Matched Rules: {rules_str}"
+                )
+
+                self.quarantine_listbox.insert("end", display_text)
+                index += 1
+
+            except Exception as e:
+                self.log(f"[ERROR] Failed to read metadata for {file_name}: {e}", "load")
+        
         
     def log(self, message, log_type):
         if log_type == "load":
@@ -181,6 +194,9 @@ class VWARScannerGUI:
 
         Button(home_page, text="auto_scanning", command=lambda: self.show_page("auto_scanning"), bg="green", fg="white",
                font=("Inter", 16)).place(x=400, y=400, width=200, height=50)
+        
+        
+        
 
     def create_scanning_page(self):
         
@@ -237,111 +253,7 @@ class VWARScannerGUI:
         self.tested_text = Text(scanning_page, bg="#D9D9D9", fg="#000000", wrap="word")
         self.tested_text.place(x=557, y=488, width=485, height=232)
 
-    def show_quarantine_window(self):
-        """Display a window with quarantined files, extracting timestamp and original location."""
-        if hasattr(self, "quarantine_window") and self.quarantine_window.winfo_exists():
-            self.quarantine_window.lift()  # Bring existing window to the front
-            return
-        
-        self.quarantine_window = Toplevel(self.root)
-        self.quarantine_window.title("Quarantined Files")
-        self.quarantine_window.geometry("700x400")
-        self.quarantine_window.configure(bg="#009AA5")
-
-        self.quarantine_listbox = Listbox(
-            self.quarantine_window, bg="white", fg="black", font=("Inter", 12), selectmode="single"
-        )
-        self.quarantine_listbox.pack(padx=20, pady=10, fill="both", expand=True)
-
-        # Load quarantined files dynamically
-        self.quarantined_files = {}
-        
-        for index, file_name in enumerate(os.listdir(self.quarantine_folder), start=1):
-            quarantined_path = os.path.join(self.quarantine_folder, file_name)
-            
-            if os.path.isfile(quarantined_path) and file_name.endswith(".quarantined"):
-                parts = file_name.rsplit("__", 2)
-                if len(parts) < 3:
-                    continue  # Invalid format, skip
-                fname, timestamp, encoded_path = parts
-
-                # Decode original file path
-                original_path = decode_base64(encoded_path)
-
-                # Format timestamp
-                formatted_time = f"{timestamp[:4]}-{timestamp[4:6]}-{timestamp[6:8]} {timestamp[8:10]}:{timestamp[10:12]}:{timestamp[12:]}"
-
-                # Display in GUI
-                n = "\n"
-                display_text = f"{index}. {fname}...  | Quarantined: {formatted_time}{n} | From: {original_path}"
-                self.quarantine_listbox.insert("end", display_text)
-
-                # Store information for restoring
-                self.quarantined_files[file_name] = (quarantined_path, original_path)
-
-        # Buttons
-        
-        # Button to restore files
-        # Button( self.quarantine_window, text="Restore Selected File", command=self.restore_selected_file, bg="green", fg="white").pack(pady=5)
-        
-        
-        Button(
-            self.quarantine_window, text="Delete Selected File", command=self.delete_selected_file, bg="red", fg="white"
-        ).pack(pady=5)
-
-    def delete_selected_file(self):
-        """Delete a selected quarantined file permanently."""
-        selected_index = self.quarantine_listbox.curselection()
-        
-        if not selected_index:
-            messagebox.showwarning("No Selection", "Please select a file to delete.")
-            return
-
-        selected_file = self.quarantine_listbox.get(selected_index)
-        quarantined_path, _ = self.quarantined_files[selected_file]
-        # print(quarantined_path)
-
-        confirm = messagebox.askyesno("Confirm Deletion", f"Are you sure you want to permanently delete {selected_file}?")
-        if confirm:
-            try:
-                os.remove(quarantined_path)  # Permanently delete the file
-                del self.quarantined_files[selected_file]  # Remove from the dictionary
-                self.quarantine_listbox.delete(selected_index)  # Remove from listbox
-                self.log(f"[DELETED] {selected_file} permanently deleted.", "load")
-                messagebox.showinfo("Deleted", f"{selected_file} has been permanently deleted.")
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to delete {selected_file}: {e}")
-
-    # def fetch_and_generate_yara_rules(self):
-    #     """Fetch YARA rules from a URL and write them into categorized .yar files."""
-    #     try:
-    #         url = "https://library.bitss.fr/windows.php"
-    #         response = requests.get(url)
-    #         json_data = response.json()
-
-    #         rule_files = {}
-    #         for rule in json_data:
-    #             # rulename = rule.get("rulename", "Unknown_Rule")
-    #             category = rule.get("categoryname", "uncategorized").replace(" ", "_").lower()
-    #             conditions = rule.get("conditions", [])
-
-    #             if category not in rule_files:
-    #                 rule_files[category] = []
-
-    #             for condition in conditions:
-    #                 rule_string = condition.get("string", "")
-    #                 if rule_string:
-    #                     rule_files[category].append(rule_string.strip('""'))
-
-    #         for category, rules in rule_files.items():
-    #             output_file = os.path.join(self.rule_folder, f"{category}.yar")
-    #             with open(output_file, "w") as file:
-    #                 for rule in rules:
-    #                     file.write(rule + "\n\n")
-
-    #         self.log("[INFO] YARA rules categorized and saved.", "load")
-    #     except Exception as e:
-    #         self.log(f"[ERROR] Failed to fetch YARA rules: {e}", "load")
+ 
 
     def fetch_and_generate_yara_rules(self):
             """Fetch YARA rules from a URL and write them into categorized .yar files."""
@@ -620,33 +532,67 @@ class VWARScannerGUI:
                 self.log(f"[MATCH] {file_path}\nRule: {matches[0].rule}\nMalware Type: {yara_file}\nRule Folder: {folder_name}\n\n", "matched")
 
                 # Quarantine the file
-                self.quarantine_file(file_path)  # Move matched file to quarantine
+                self.quarantine_file(file_path,yara_file)  # Move matched file to quarantine
 
         except Exception as e:
             self.log(f"[ERROR] Failed to scan file '{file_path}': {e}", "tested")
 
-    def quarantine_file(self, file_path):
-        """Move matched files to a quarantine folder and encode metadata in the filename."""
+    # def quarantine_file(self, file_path):
+    #     """Move matched files to a quarantine folder and encode metadata in the filename."""
+    #     if not os.path.exists(self.quarantine_folder):
+    #         os.makedirs(self.quarantine_folder)
+
+    #     file_name = os.path.basename(file_path)
+    #     file_p = os.path.dirname(file_path)
+    #     timestamp = time.strftime("%Y%m%d%H%M%S")  # Format: YYYYMMDDHHMMSS
+    #     MAX_ENCODED_LENGTH = 100  # Limit the encoded path length
+    #     # Encode original file path in base64 to avoid special character issues
+    #     encoded_path = base64.urlsafe_b64encode(file_p.encode()).decode()
+    #     encoded_path = encoded_path[:MAX_ENCODED_LENGTH]  # Trim long paths
+ 
+    #     # New filename format: original_name__timestamp__encoded_path.quarantined
+    #     quarantined_name = f"{file_name}__{timestamp}__{encoded_path}.quarantined"
+    #     quarantined_path = os.path.join(self.quarantine_folder, quarantined_name)
+
+    #     try:
+    #         shutil.move(file_path, quarantined_path)
+    #         self.log(f"[QUARANTINED] {file_path} → {quarantined_path} at {timestamp}", "matched")
+    #     except Exception as e:
+    #         self.log(f"[ERROR] Failed to quarantine {file_path}: {e}", "matched")           
+    
+    
+    def quarantine_file(self, file_path, matched_rules):
+        """Move matched files to a quarantine folder and save metadata."""
         if not os.path.exists(self.quarantine_folder):
             os.makedirs(self.quarantine_folder)
 
         file_name = os.path.basename(file_path)
         file_p = os.path.dirname(file_path)
-        timestamp = time.strftime("%Y%m%d%H%M%S")  # Format: YYYYMMDDHHMMSS
-        MAX_ENCODED_LENGTH = 100  # Limit the encoded path length
-        # Encode original file path in base64 to avoid special character issues
-        encoded_path = base64.urlsafe_b64encode(file_p.encode()).decode()
-        encoded_path = encoded_path[:MAX_ENCODED_LENGTH]  # Trim long paths
- 
-        # New filename format: original_name__timestamp__encoded_path.quarantined
+        timestamp = time.strftime("%Y%m%d%H%M%S")
+        MAX_ENCODED_LENGTH = 100
+
+        # Encode path
+        encoded_path = base64.urlsafe_b64encode(file_p.encode()).decode()[:MAX_ENCODED_LENGTH]
         quarantined_name = f"{file_name}__{timestamp}__{encoded_path}.quarantined"
         quarantined_path = os.path.join(self.quarantine_folder, quarantined_name)
 
         try:
             shutil.move(file_path, quarantined_path)
             self.log(f"[QUARANTINED] {file_path} → {quarantined_path} at {timestamp}", "matched")
+
+            # Create metadata file
+            metadata = {
+                "original_path": file_path,
+                "timestamp": timestamp,
+                "matched_rules": matched_rules or []  # If None, default to empty list
+            }
+            meta_path = quarantined_path + ".meta"
+            with open(meta_path, "w") as meta_file:
+                json.dump(metadata, meta_file)
+
         except Exception as e:
-            self.log(f"[ERROR] Failed to quarantine {file_path}: {e}", "matched")           
+            self.log(f"[ERROR] Failed to quarantine {file_path}: {e}", "matched")
+        self.update_quarantine_listbox()
     
 
     def stop_scanning(self):
@@ -654,15 +600,6 @@ class VWARScannerGUI:
         self.stop_scan = True
 
 
-
-
-    # def create_auto_scanning_page(self):
-    #     """Create the Backup Page for file backup and restoration."""
-    #     auto_scanning_page = Frame(self.root, bg="#009AA5")
-    #     self.pages["auto_scanning"] = auto_scanning_page
-
-    #     Button(auto_scanning_page, text="Back", command=lambda: self.show_page("home"), bg="gray", fg="white",
-    #            font=("Inter", 12)).place(x=10, y=10, width=80, height=30)
 
 
 
@@ -678,16 +615,8 @@ class VWARScannerGUI:
         # Title Label
         Label(auto_scanning_page, text="Quarantined Files", font=("Inter", 16, "bold"), bg="#009AA5", fg="white").place(x=20, y=60)
 
-        # # Quarantine Listbox with Scrollbar
-        # self.quarantine_listbox = Listbox(auto_scanning_page, font=("Inter", 11))
-        # self.quarantine_listbox.place(x=20, y=100, width=550, height=300)
 
-        # scrollbar = Scrollbar(auto_scanning_page)
-        # scrollbar.place(x=570, y=100, height=300)
-        # self.quarantine_listbox.config(yscrollcommand=scrollbar.set)
-        # scrollbar.config(command=self.quarantine_listbox.yview)
-        
-        
+ 
         # Quarantine Listbox
         self.quarantine_listbox = Listbox(
             auto_scanning_page,
@@ -773,37 +702,118 @@ class VWARScannerGUI:
             selected_indices = self.quarantine_listbox.curselection()
             if not selected_indices:
                 return  # Do nothing if nothing is selected
+
             for index in selected_indices[::-1]:  # Reverse to avoid index shifting
-                file_name = self.quarantine_listbox.get(index)
-                file_path = os.path.join(self.quarantine_folder, file_name)
-                if os.path.exists(file_path):
+                display_text = self.quarantine_listbox.get(index)
+
+                # Extract actual filename from display text (e.g., "1. File: filename...")
+                try:
+                    line_start = display_text.split("File: ")[1].split("\n")[0].strip()
+                except IndexError:
+                    self.log(f"[ERROR] Could not parse filename from: {display_text}", "load")
+                    continue
+
+                # Search the quarantine folder for the matching file
+                matched_file = None
+                for file in os.listdir(self.quarantine_folder):
+                    if file.startswith(line_start) and file.endswith(".quarantined"):
+                        matched_file = file
+                        break
+
+                if matched_file:
+                    quarantined_path = os.path.join(self.quarantine_folder, matched_file)
+                    meta_path = quarantined_path + ".meta"
+
                     try:
-                        os.remove(file_path)
+                        if os.path.exists(quarantined_path):
+                            os.remove(quarantined_path)
+                        if os.path.exists(meta_path):
+                            os.remove(meta_path)
+
                         self.quarantine_listbox.delete(index)
-                        self.log(f"[INFO] Deleted quarantined file: {file_name}", "load")
+                        self.log(f"[INFO] Deleted quarantined file and metadata: {matched_file}", "load")
+
                     except Exception as e:
-                        self.log(f"[ERROR] Failed to delete {file_name}: {e}", "load")
+                        self.log(f"[ERROR] Failed to delete {matched_file} or metadata: {e}", "load")
+                else:
+                    self.log(f"[WARN] Could not locate quarantined file for: {line_start}", "load")
 
         Button(auto_scanning_page, text="Delete Selected", command=delete_selected_quarantined_files,
             bg="#B22222", fg="white", font=("Inter", 12)).place(x=240, y=420, width=160, height=40)
 
         # Refresh Quarantine List
         
+        # def refresh_quarantine_list():
+            
+        #     # a=self.update_quarantine_listbox()
+        #     # print(a)
+        #     self.quarantine_listbox.delete(0, "end")
+        #     if os.path.exists(self.quarantine_folder):
+        #         files = os.listdir(self.quarantine_folder)
+        #         for file in files:
+        #             self.quarantine_listbox.insert("end", file)
+
+        # Button(auto_scanning_page, text="Refresh", command=refresh_quarantine_list,
+        #     bg="#006666", fg="white", font=("Inter", 12)).place(x=420, y=420, width=100, height=40)
+
+        # # Initial load
+        # refresh_quarantine_list()
+        
+        
         def refresh_quarantine_list():
-            a=self.update_quarantine_listbox()
-            print(a)
             self.quarantine_listbox.delete(0, "end")
-            if os.path.exists(self.quarantine_folder):
-                files = os.listdir(self.quarantine_folder)
-                for file in files:
-                    self.quarantine_listbox.insert("end", file)
+            index = 1
+
+            for file_name in os.listdir(self.quarantine_folder):
+                if not file_name.endswith(".quarantined"):
+                    continue
+
+                quarantined_path = os.path.join(self.quarantine_folder, file_name)
+                meta_path = quarantined_path + ".meta"
+
+                if not os.path.exists(meta_path):
+                    continue  # Skip if no metadata
+
+                try:
+                    with open(meta_path, "r", encoding="utf-8") as f:
+                        metadata = json.load(f)
+
+                    # Extract metadata fields
+                    original_path = metadata.get("original_path", "Unknown")
+                    timestamp = metadata.get("timestamp", "")
+                    matched_rules = metadata.get("matched_rules", [])
+
+                    # Format timestamp
+                    formatted_time = "Unknown"
+                    if len(timestamp) == 14:
+                        formatted_time = f"{timestamp[:4]}-{timestamp[4:6]}-{timestamp[6:8]} {timestamp[8:10]}:{timestamp[10:12]}:{timestamp[12:]}"
+                    
+                    # Format rule list
+                    rules_str = ", ".join(matched_rules) if matched_rules else "Unknown"
+
+                    # Extract display-safe filename
+                    fname = file_name.split("__")[0]
+
+                    # Compose formatted string
+                    display_text = (
+                        f"{index}. File: {fname}\n"
+                        f"   → Quarantined: {formatted_time}\n"
+                        f"   → From: {original_path}\n"
+                        f"   → Matched Rules: {rules_str}"
+                    )
+
+                    self.quarantine_listbox.insert("end", display_text)
+                    index += 1
+
+                except Exception as e:
+                    self.log(f"[ERROR] Failed to read metadata for {file_name}: {e}", "load")
 
         Button(auto_scanning_page, text="Refresh", command=refresh_quarantine_list,
             bg="#006666", fg="white", font=("Inter", 12)).place(x=420, y=420, width=100, height=40)
 
         # Initial load
         refresh_quarantine_list()
-
+        self.update_quarantine_listbox()
 
 
     def create_backup_page(self):
