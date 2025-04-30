@@ -39,7 +39,7 @@ class VWARScannerGUI:
         self.root = root
         self.root.title("VWAR Scanner")
         # self.watch_path = "C:/"  # Change this to the directory you want to monitor
-        self.watch_path="D:\soft"
+        self.watch_path="E:/vwar/WV-master/New folder"
         self.monitor = RealTimeMonitor(self, self.watch_path)
         self.monitor.start()  # Start real-time monitoring
         self.rule_folder = os.path.join(os.getcwd(), "yara")
@@ -49,6 +49,13 @@ class VWARScannerGUI:
         self.rules = None
         self.stop_scan = False
         self.quarantined_files = {}
+
+        self.selected_files = []
+        self.selected_backup_folder = ""
+
+        self.selected_vwar_folder = ""
+        self.selected_restore_file = ""
+        self.selected_restore_folder = ""
         
         
         
@@ -128,7 +135,8 @@ class VWARScannerGUI:
                 else:
                     formatted_time = "Unknown"
 
-                rules_str = ", ".join(matched_rules) if matched_rules else "Unknown"
+                # rules_str = ", ".join(matched_rules) if matched_rules else "Unknown"
+                rules_str = matched_rules
 
                 # Build display text
                 display_text = (
@@ -223,7 +231,7 @@ class VWARScannerGUI:
         self.home_scan_progress.place(x=20, y=470)
         
         
-        
+  
 
     def create_scanning_page(self):
         
@@ -239,7 +247,7 @@ class VWARScannerGUI:
         
 
 
-        Button(scanning_page, text="Back", command=lambda: self.show_page("home"), bg="gray", fg="white",
+        Button(scanning_page, text="Back", command=lambda: self.show_page("home"), bg="gold", fg="white",
                font=("Inter", 12)).place(x=10, y=10, width=80, height=30)
 
         Button(scanning_page, text="Select Target File", command=self.select_file).place(x=302.0, y=139.0, width=125.0, height=40.0)
@@ -297,9 +305,6 @@ class VWARScannerGUI:
                 # rule_files = {}
 
                 for rule in json_data:
-                    # Default to 'uncategorized' category if not found
-                    # category = rule.get("categoryname", "uncategorized").replace(" ", "_").lower()
-                    # conditions = rule.get("conditions", [])
                     category = rule.get("categoryname", "uncategorized")  # Default to 'uncategorized' if no category
                     rule_name = rule.get("rulename", "unknown_rule")  # Use 'unknown_rule' if no name is provided
                     rule_content = rule.get("conditions", [{}])[0].get("string", "")
@@ -311,30 +316,7 @@ class VWARScannerGUI:
                     with open(file_path, "w", encoding="utf-8") as f:
                         f.write(rule_content)
                     
-                    # print(f"Saved: {file_path}")
-
-                    # if category not in category:
-                    #     rule_files[category] = []
-
-                    # for condition in rule_content:
-                    #     rule_string = condition.get("string", "")
-                    #     if rule_string:
-                    #         # Removing unnecessary quote marks around rule string
-                    #         rule_files[category].append(rule_string.strip('""'))
-
-                # Now save the categorized rules into individual .yar files
-                # for category, rules in rule_files.items():
-                #     # Create the category folder if it doesn't exist
-                #     category_folder = os.path.join(self.rule_folder, category)
-                #     os.makedirs(category_folder, exist_ok=True)
-
-                #     output_file = os.path.join(category_folder, f"{category}.yar")
-                #     with open(output_file, "w", encoding="utf-8") as file:
-                #         for rule in rules:
-                #             file.write(rule + "\n\n")
-
-                    
-                # self.log(f"[INFO] Rules for '{category}' saved in {output_file}.", "load")
+                  
                 self.log("[INFO] YARA rules categorized and saved successfully.", "load")
 
             except requests.RequestException as e:
@@ -343,62 +325,7 @@ class VWARScannerGUI:
                 self.log(f"[ERROR] An error occurred: {e}", "load")
 
 
-    # def load_rules(self):
-    #     try:
-    #         rule_files = [
-    #             os.path.join(self.rule_folder, file)
-    #             for file in os.listdir(self.rule_folder)
-    #             if file.endswith(".yar")
-    #         ]
-    #         if not rule_files:
-    #             raise FileNotFoundError("No .yar files found in the 'yara' folder.")
-            
-    #         valid_rule_files = {}
-    #         for file_path in rule_files:
-    #             try:
-    #                 yara.compile(filepath=file_path)
-    #                 valid_rule_files[os.path.basename(file_path)] = file_path
-              
-    #             except (yara.SyntaxError, yara.CompileError) as e:
-    #                 print(f"[ERROR] Failed to compile YARA file {file_path}: {e}")
-
-    #         if valid_rule_files:
-    #             self.rules = yara.compile(filepaths=valid_rule_files)
-    #             self.log(f"[INFO] Successfully compiled {len(valid_rule_files)} YARA rule files.", "load")
-    #         else:
-    #             self.log("[ERROR] No valid YARA rules to compile.", "load")
-    #     except Exception as e:
-    #         self.log(f"[ERROR] Failed to load YARA rules: {e}", "load")
-    
-
-    # def load_rules(self):
-    #     try:
-    #         # Initialize a dictionary to store valid rule files
-    #         valid_rule_files = {}
-
-    #         # Loop through each subdirectory (category) in the 'yara' directory
-    #         for root, dirs, files in os.walk(self.rule_folder):
-    #             for file in files:
-    #                 if file.endswith(".yar"):
-    #                     file_path = os.path.join(root, file)
-                        
-    #                     # Try to compile each YARA rule file
-    #                     try:
-    #                         yara.compile(filepath=file_path)
-    #                         valid_rule_files[os.path.basename(file_path)] = file_path
-    #                         print(f"[INFO] Successfully compiled {file_path}")
-    #                     except (yara.SyntaxError, yara.CompileError) as e:
-    #                         print(f"[ERROR] Failed to compile YARA file {file_path}: {e}")
-
-    #         if valid_rule_files:
-    #             # If there are valid rule files, compile them all together
-    #             self.rules = yara.compile(filepaths=valid_rule_files)
-    #             self.log(f"[INFO] Successfully compiled {len(valid_rule_files)} YARA rule files.", "load")
-    #         else:
-    #             self.log("[ERROR] No valid YARA rules to compile.", "load")
-
-    #     except Exception as e:
-    #         self.log(f"[ERROR] Failed to load YARA rules: {e}", "load")
+ 
     
     
     def load_rules(self):
@@ -515,24 +442,7 @@ class VWARScannerGUI:
         if not self.stop_scan:
             self.log("[INFO] Directory scan completed.", "load")
 
-    # def scan_file(self, file_path):
-    #     if self.stop_scan:
-    #         return
-    #     try:
-    #         matches = self.rules.match(file_path, timeout=60)
-    #         self.log(f"{file_path} \n", "tested")
-    #         if matches:
-    #             print(matches)
-    #             yara_file = os.path.splitext(os.path.basename(matches[0].namespace))[0]  # Remove .yar extension
-
-    #             self.log(f"[MATCH] {file_path}\nRule: {matches[0].rule}\nMalware Type: {yara_file}\n\n", "matched")
-
-    #             self.quarantine_file(file_path)  # Move matched file to quarantine
-      
-    #     except (yara.SyntaxError, yara.CompileError) as e:
-    #         self.log(f"[ERROR] Failed to scan file '{file_path}': {e}", "tested")
-        
-        
+ 
         
         
         
@@ -544,49 +454,26 @@ class VWARScannerGUI:
             self.log(f"{file_path} \n", "tested")
             
             if matches:
-                # print(matches)
-                # Get the namespace (YARA file name without extension)
+              
                 yara_file = os.path.splitext(os.path.basename(matches[0].namespace))[0]  # Remove .yar extension
 
                 # Get the folder name where the YARA rule is located
                 rule_folder = os.path.dirname(matches[0].namespace)
                 folder_name = os.path.basename(rule_folder)
 
-                # print(f"Match found in rule: {matches[0].rule}")
-                # print(f"YARA file located in folder: {folder_name}")
                 
                 # Log the match information with the folder name
                 self.log(f"[MATCH] {file_path}\nRule: {matches[0].rule}\nMalware Type: {yara_file}\nRule Folder: {folder_name}\n\n", "matched")
 
                 # Quarantine the file
                 self.quarantine_file(file_path,yara_file) # Move matched file to quarantine
+               
                 self.notify_threat_detected(file_path, yara_file)
 
         except Exception as e:
             self.log(f"[ERROR] Failed to scan file '{file_path}': {e}", "tested")
 
-    # def quarantine_file(self, file_path):
-    #     """Move matched files to a quarantine folder and encode metadata in the filename."""
-    #     if not os.path.exists(self.quarantine_folder):
-    #         os.makedirs(self.quarantine_folder)
-
-    #     file_name = os.path.basename(file_path)
-    #     file_p = os.path.dirname(file_path)
-    #     timestamp = time.strftime("%Y%m%d%H%M%S")  # Format: YYYYMMDDHHMMSS
-    #     MAX_ENCODED_LENGTH = 100  # Limit the encoded path length
-    #     # Encode original file path in base64 to avoid special character issues
-    #     encoded_path = base64.urlsafe_b64encode(file_p.encode()).decode()
-    #     encoded_path = encoded_path[:MAX_ENCODED_LENGTH]  # Trim long paths
- 
-    #     # New filename format: original_name__timestamp__encoded_path.quarantined
-    #     quarantined_name = f"{file_name}__{timestamp}__{encoded_path}.quarantined"
-    #     quarantined_path = os.path.join(self.quarantine_folder, quarantined_name)
-
-    #     try:
-    #         shutil.move(file_path, quarantined_path)
-    #         self.log(f"[QUARANTINED] {file_path} → {quarantined_path} at {timestamp}", "matched")
-    #     except Exception as e:
-    #         self.log(f"[ERROR] Failed to quarantine {file_path}: {e}", "matched")           
+    
     
     
     def quarantine_file(self, file_path, matched_rules):
@@ -617,7 +504,7 @@ class VWARScannerGUI:
             meta_path = quarantined_path + ".meta"
             with open(meta_path, "w") as meta_file:
                 json.dump(metadata, meta_file)
-
+            
         except Exception as e:
             self.log(f"[ERROR] Failed to quarantine {file_path}: {e}", "matched")
         self.update_quarantine_listbox()
@@ -629,226 +516,8 @@ class VWARScannerGUI:
 
 
 
-################################&&&&&&&&&&&&&&&&&&&&&&&&&
-
-    # def create_auto_scanning_page(self):
-    #     """Create the Auto Scanning Page for real-time file monitoring."""
-    #     auto_scanning_page = Frame(self.root, bg="#009AA5")
-    #     self.pages["auto_scanning"] = auto_scanning_page
-
-    #     # Back Button
-    #     Button(auto_scanning_page, text="Back", command=lambda: self.show_page("home"), bg="gray", fg="white",
-    #         font=("Inter", 12)).place(x=10, y=10, width=80, height=30)
-
-    #     # Title Label
-    #     Label(auto_scanning_page, text="Quarantined Files", font=("Inter", 16, "bold"), bg="#009AA5", fg="white").place(x=20, y=60)
-
-
- 
-    #     # Quarantine Listbox
-    #     self.quarantine_listbox = Listbox(
-    #         auto_scanning_page,
-    #         font=("Inter", 11),
-    #         xscrollcommand=lambda *args: x_scrollbar.set(*args),
-    #         yscrollcommand=lambda *args: y_scrollbar.set(*args),
-    #     )
-
-    #     self.quarantine_listbox.place(x=20, y=100, width=550, height=300)
-
-    #     # Vertical Scrollbar
-    #     y_scrollbar = Scrollbar(auto_scanning_page, orient="vertical", command=self.quarantine_listbox.yview)
-    #     y_scrollbar.place(x=570, y=100, height=300)
-
-    #     # Horizontal Scrollbar
-    #     x_scrollbar = Scrollbar(auto_scanning_page, orient="horizontal", command=self.quarantine_listbox.xview)
-    #     x_scrollbar.place(x=20, y=400, width=550)
-
-    #     # Final scrollbar setup
-    #     self.quarantine_listbox.config(yscrollcommand=y_scrollbar.set, xscrollcommand=x_scrollbar.set)
-
-    #     # Auto Scan Buttons
-    #     self.auto_scan_button_text = StringVar(value="Start Auto Scanning")
-    #     self.monitoring_active = False
-        
-    #     # Detail Panel (Text box)
-    #     self.detail_text = Text(auto_scanning_page, font=("Inter", 11), wrap="word", state="disabled", bg="white", fg="black")
-    #     self.detail_text.place(x=600, y=100, width=400, height=300)
-        
-
-    #     def start_auto_scanning():
-    #         if not self.monitoring_active:
-    #             self.monitor = RealTimeMonitor(self, self.watch_path)
-    #             self.monitor.start()
-    #             self.monitoring_active = True
-    #             self.auto_scan_button_text.set("Stop Auto Scanning")
-    #             self.log("[INFO] Auto scanning started.", "load")
-
-    #     def stop_auto_scanning():
-    #         if self.monitoring_active and hasattr(self, 'monitor'):
-    #             self.monitor.stop()
-    #             self.monitoring_active = False
-    #             self.auto_scan_button_text.set("Start Auto Scanning")
-    #             self.log("[INFO] Auto scanning stopped.", "load")
-
-    #     def toggle_auto_scanning():
-    #         if self.monitoring_active:
-    #             stop_auto_scanning()
-    #         else:
-    #             start_auto_scanning()
-
-    #     # Start/Stop Button
-    #     Button(auto_scanning_page, textvariable=self.auto_scan_button_text,
-    #         command=toggle_auto_scanning, bg="#004953", fg="white",
-    #         font=("Inter", 12, "bold")).place(x=20, y=420, width=200, height=40)
-
-    #     # Delete Selected Quarantined File(s)
-    #     # def delete_selected_quarantined_files():
-    #     #     selected_indices = self.quarantine_listbox.curselection()
-    #     #     # print(selected_indices)
-    #     #     if not selected_indices:
-    #     #         return  # Do nothing if nothing is selected
-    #     #     for index in selected_indices[::-1]:  # Reverse to avoid index shifting
-    #     #         file_name = self.quarantine_listbox.get(index)
-    #     #         # print(file_name)
-    #     #         def extract_filename(line):
-    #     #             try:
-    #     #                 parts = line.split("|")
-    #     #                 if len(parts) > 2:
-    #     #                     return parts[1].strip()
-    #     #             except Exception as e:
-    #     #                 print(f"Error parsing line: {e}")
-    #     #             return ""
-    #     #         name1 = extract_filename(file_name)
-    #     #         # print(name1)
-    #     #         # print(quarantine_folder)
-    #     #         file_path = os.path.join(self.quarantine_folder, name1)
-    #     #         # print(file_path)
-    #     #         if os.path.exists(file_path):
-    #     #             try:
-    #     #                 os.remove(file_path)
-    #     #                 self.quarantine_listbox.delete(index)
-    #     #                 self.log(f"[INFO] Deleted quarantined file: {file_name}", "load")
-    #     #             except Exception as e:
-    #     #                 self.log(f"[ERROR] Failed to delete {file_name}: {e}", "load")
-        
-    #     def delete_selected_quarantined_files():
-    #         selected_indices = self.quarantine_listbox.curselection()
-    #         if not selected_indices:
-    #             return  # Do nothing if nothing is selected
-
-    #         for index in selected_indices[::-1]:  # Reverse to avoid index shifting
-    #             display_text = self.quarantine_listbox.get(index)
-
-    #             # Extract actual filename from display text (e.g., "1. File: filename...")
-    #             try:
-    #                 line_start = display_text.split("File: ")[1].split("\n")[0].strip()
-    #             except IndexError:
-    #                 self.log(f"[ERROR] Could not parse filename from: {display_text}", "load")
-    #                 continue
-
-    #             # Search the quarantine folder for the matching file
-    #             matched_file = None
-    #             for file in os.listdir(self.quarantine_folder):
-    #                 if file.startswith(line_start) and file.endswith(".quarantined"):
-    #                     matched_file = file
-    #                     break
-
-    #             if matched_file:
-    #                 quarantined_path = os.path.join(self.quarantine_folder, matched_file)
-    #                 meta_path = quarantined_path + ".meta"
-
-    #                 try:
-    #                     if os.path.exists(quarantined_path):
-    #                         os.remove(quarantined_path)
-    #                     if os.path.exists(meta_path):
-    #                         os.remove(meta_path)
-
-    #                     self.quarantine_listbox.delete(index)
-    #                     self.log(f"[INFO] Deleted quarantined file and metadata: {matched_file}", "load")
-
-    #                 except Exception as e:
-    #                     self.log(f"[ERROR] Failed to delete {matched_file} or metadata: {e}", "load")
-    #             else:
-    #                 self.log(f"[WARN] Could not locate quarantined file for: {line_start}", "load")
-
-    #     Button(auto_scanning_page, text="Delete Selected", command=delete_selected_quarantined_files,
-    #         bg="#B22222", fg="white", font=("Inter", 12)).place(x=240, y=420, width=160, height=40)
-
-    #     # Refresh Quarantine List
-        
-    #     # def refresh_quarantine_list():
-            
-    #     #     # a=self.update_quarantine_listbox()
-    #     #     # print(a)
-    #     #     self.quarantine_listbox.delete(0, "end")
-    #     #     if os.path.exists(self.quarantine_folder):
-    #     #         files = os.listdir(self.quarantine_folder)
-    #     #         for file in files:
-    #     #             self.quarantine_listbox.insert("end", file)
-
-    #     # Button(auto_scanning_page, text="Refresh", command=refresh_quarantine_list,
-    #     #     bg="#006666", fg="white", font=("Inter", 12)).place(x=420, y=420, width=100, height=40)
-
-    #     # # Initial load
-    #     # refresh_quarantine_list()
-        
-        
-    #     def refresh_quarantine_list():
-    #         self.quarantine_listbox.delete(0, "end")
-    #         index = 1
-
-    #         for file_name in os.listdir(self.quarantine_folder):
-    #             if not file_name.endswith(".quarantined"):
-    #                 continue
-
-    #             quarantined_path = os.path.join(self.quarantine_folder, file_name)
-    #             meta_path = quarantined_path + ".meta"
-
-    #             if not os.path.exists(meta_path):
-    #                 continue  # Skip if no metadata
-
-    #             try:
-    #                 with open(meta_path, "r", encoding="utf-8") as f:
-    #                     metadata = json.load(f)
-
-    #                 # Extract metadata fields
-    #                 original_path = metadata.get("original_path", "Unknown")
-    #                 timestamp = metadata.get("timestamp", "")
-    #                 matched_rules = metadata.get("matched_rules", [])
-
-    #                 # Format timestamp
-    #                 formatted_time = "Unknown"
-    #                 if len(timestamp) == 14:
-    #                     formatted_time = f"{timestamp[:4]}-{timestamp[4:6]}-{timestamp[6:8]} {timestamp[8:10]}:{timestamp[10:12]}:{timestamp[12:]}"
-                    
-    #                 # Format rule list
-    #                 rules_str = ", ".join(matched_rules) if matched_rules else "Unknown"
-
-    #                 # Extract display-safe filename
-    #                 fname = file_name.split("__")[0]
-
-    #                 # Compose formatted string
-    #                 display_text = (
-    #                     f"{index}. File: {fname}\n"
-    #                     f"   → Quarantined: {formatted_time}\n"
-    #                     f"   → From: {original_path}\n"
-    #                     f"   → Matched Rules: {rules_str}"
-    #                 )
-
-    #                 self.quarantine_listbox.insert("end", display_text)
-    #                 index += 1
-
-    #             except Exception as e:
-    #                 self.log(f"[ERROR] Failed to read metadata for {file_name}: {e}", "load")
-
-    #     Button(auto_scanning_page, text="Refresh", command=refresh_quarantine_list,
-    #         bg="#006666", fg="white", font=("Inter", 12)).place(x=420, y=420, width=100, height=40)
-
-    #     # Initial load
-    #     refresh_quarantine_list()
-    #     self.update_quarantine_listbox()
-
-#####################%%%%%%%%%%%%%%%%%%%%%%%%%
+    def p(self):
+        print ("button working")
 
     def create_auto_scanning_page(self):
         """Create the Auto Scanning Page for real-time file monitoring."""
@@ -856,11 +525,15 @@ class VWARScannerGUI:
         self.pages["auto_scanning"] = auto_scanning_page
 
         Button(auto_scanning_page, text="Back", command=lambda: self.show_page("home"),
-            bg="gray", fg="white", font=("Inter", 12)).place(x=10, y=10, width=80, height=30)
-
+            bg="purple", fg="white", font=("Inter", 12)).place(x=10, y=10, width=80, height=30)
+        
+       
+        
         Label(auto_scanning_page, text="Quarantined Files", font=("Inter", 16, "bold"),
             bg="#009AA5", fg="white").place(x=20, y=60)
 
+
+       
         # Quarantine Listbox
         self.quarantine_listbox = Listbox(
             auto_scanning_page,
@@ -965,7 +638,93 @@ class VWARScannerGUI:
                         self.log(f"[ERROR] Failed to delete {matched_file} or metadata: {e}", "load")
 
         Button(auto_scanning_page, text="Delete Selected", command=delete_selected_quarantined_files,
-            bg="#B22222", fg="white", font=("Inter", 12)).place(x=240, y=420, width=160, height=40)
+            bg="#B22222", fg="white", font=("Inter", 12)).place(x=240, y=470, width=160, height=40)
+        
+        def restore_quarantined_file_from_backup():
+            selected_index = self.quarantine_listbox.curselection()
+            if not selected_index:
+                messagebox.showwarning("No Selection", "Please select a file from the quarantine list.")
+                return
+
+            selected_item = self.quarantine_listbox.get(selected_index)
+           
+            # Extract the file path from the log entry (assumes format "[QUARANTINED] filepath")
+
+            match = re.search(r"→ From:\s*(.+)", selected_item)
+            if match:
+                from_path = match.group(1)
+                print(from_path)
+            # match = re.search(r"\[QUARANTINED\] (.+)", selected_item)
+            print(f"line 653 {selected_item}")
+            if not match:
+                messagebox.showerror("Error", "Could not parse the file path from the selected entry.")
+                return
+
+            original_path = match.group(1)
+            filename = os.path.basename(original_path)
+
+            # === Step 1: Ask for VWARbackup folder ===
+            vwarbackup_folder = filedialog.askdirectory(title="Select VWARbackup Folder")
+            if not vwarbackup_folder or not vwarbackup_folder.endswith("VWARbackup"):
+                messagebox.showerror("Invalid Folder", "Please select a valid VWARbackup folder.")
+                return
+
+            # === Step 2: Search for the backup file ===
+            found_files = []
+            for root, _, files in os.walk(vwarbackup_folder):
+                for f in files:
+                    if f == filename + ".backup":
+                        found_files.append(os.path.join(root, f))
+
+            # === Step 5: No backup file found ===
+            if not found_files:
+                messagebox.showinfo("Not Found", f"No backup found for '{filename}' in VWARbackup.")
+                return
+
+            # === Step 3: Multiple backup files found, ask user to choose ===
+            selected_backup = found_files[0]
+            if len(found_files) > 1:
+                choice_window = Toplevel(self.root)
+                choice_window.title("Choose Backup Version")
+                choice_window.geometry("500x300")
+
+                Label(choice_window, text="Select a backup version to restore:", font=("Inter", 12)).pack(pady=10)
+                listbox = Listbox(choice_window, width=80, height=10)
+                listbox.pack(padx=10)
+
+                for path in found_files:
+                    listbox.insert("end", path)
+
+                def confirm_choice():
+                    nonlocal selected_backup
+                    selection = listbox.curselection()
+                    if not selection:
+                        messagebox.showwarning("No Selection", "Please select a backup file.")
+                        return
+                    selected_backup = listbox.get(selection[0])
+                    choice_window.destroy()
+
+                Button(choice_window, text="Restore This Version", command=confirm_choice,
+                    bg="blue", fg="white", font=("Inter", 12)).pack(pady=10)
+
+                choice_window.transient(self.root)
+                choice_window.grab_set()
+                self.root.wait_window(choice_window)
+
+            # === Step 4: Restore to original path ===
+            try:
+                os.makedirs(os.path.dirname(original_path), exist_ok=True)
+                shutil.copy(selected_backup, original_path)
+                messagebox.showinfo("Restored", f"Backup restored to:\n{original_path}")
+                self.log(f"[RESTORED] {selected_backup} -> {original_path}", "load")
+            except Exception as e:
+                messagebox.showerror("Restore Failed", str(e))
+                self.log(f"[ERROR] Restore failed: {e}", "load")
+
+        
+        Button(auto_scanning_page, text="Restore file from Backup", command=restore_quarantined_file_from_backup,
+       bg="blue", fg="white", font=("Inter", 12)).place(x=240, y=420, width=160, height=40)
+
 
         # Mapping display index to metadata path
         self.display_index_to_meta = {}
@@ -996,15 +755,15 @@ class VWARScannerGUI:
                     formatted_time = "Unknown"
                     if len(timestamp) == 14:
                         formatted_time = f"{timestamp[:4]}-{timestamp[4:6]}-{timestamp[6:8]} {timestamp[8:10]}:{timestamp[10:12]}:{timestamp[12:]}"
-
-                    rules_str = ", ".join(matched_rules) if matched_rules else "Unknown"
+                    # rules_str = ", ".join(matched_rules) if matched_rules else "Unknown"
+                    rules_str = matched_rules
                     fname = file_name.split("__")[0]
 
                     display_text = (
                         f"{index}. File: {fname}\n"
                         f"   → Quarantined: {formatted_time}\n"
                         f"   → From: {original_path}\n"
-                        f"   → Matched Rules: {rules_str}"
+                        f"   → Matched Rules: {rules_str}\n"
                         f"   → Type: {rules_str}"
                     )
 
@@ -1037,7 +796,7 @@ class VWARScannerGUI:
                     timestamp = metadata.get("timestamp", "Unknown")
                     matched_rules = metadata.get("matched_rules", [])
                     formatted_time = f"{timestamp[:4]}-{timestamp[4:6]}-{timestamp[6:8]} {timestamp[8:10]}:{timestamp[10:12]}:{timestamp[12:]}" if len(timestamp) == 14 else "Unknown"
-                    rules_str = "\n".join(matched_rules) if matched_rules else "None"
+                    rules_str = "".join(matched_rules) if matched_rules else "None"
 
                     detail_text = (
                         f"Original Path:\n{original_path}\n\n"
@@ -1060,176 +819,8 @@ class VWARScannerGUI:
         self.update_quarantine_listbox()
         refresh_quarantine_list()
         
-
-
-
-
-
-
-    # def create_backup_page(self):
-    #     """Create the Backup Page for file backup and restoration."""
-    #     backup_page = Frame(self.root, bg="#009AA5")
-    #     self.pages["backup"] = backup_page
-
-    #     Button(backup_page, text="Back", command=lambda: self.show_page("home"), bg="gray", fg="white",
-    #            font=("Inter", 12)).place(x=10, y=10, width=80, height=30)
-
-    #     Button(backup_page, text="Select File to Backup", command=self.select_backup_file).place(x=302, y=139, width=150, height=40)
-    #     Button(backup_page, text="Restore from Backup", command=self.restore_backup).place(x=302, y=195, width=150, height=40)
-
-
-
-
-    # def select_backup_file(self):
-    #     """Allow user to select a file to back up and choose where to save it."""
-    #     # Step 1: Select file to back up
-    #     source_path = filedialog.askopenfilename(
-    #         title="Select File to Backup",
-    #         filetypes=(("All files", "*.*"),)
-    #     )
-    #     if not source_path:
-    #         return  # User cancelled the operation
-
-    #     # Step 2: Select destination directory for backup
-    #     destination_root = filedialog.askdirectory(
-    #         title="Select Destination Folder for Backup"
-    #     )
-    #     if not destination_root:
-    #         return  # User cancelled the operation
-
-    #     # Step 3: Determine backup folder path
-    #     if os.path.basename(destination_root) == "VWARbackup":
-    #         backup_folder_path = destination_root
-    #     else:
-    #         backup_folder_path = os.path.join(destination_root, "VWARbackup")
-    #         if not os.path.exists(backup_folder_path):
-    #             os.makedirs(backup_folder_path)
-
-    #     # Step 4: Create date-based folder inside backup folder
-    #     today = datetime.now().strftime("%Y-%m-%d")
-    #     date_folder_path = os.path.join(backup_folder_path, today)
-    #     os.makedirs(date_folder_path, exist_ok=True)
-
-    #     # Step 5: Copy the selected file into the date-based folder
-    #     try:
-    #         filename = os.path.basename(source_path)
-    #         backup_file_path = os.path.join(date_folder_path, filename + ".backup")
-    #         shutil.copy2(source_path, backup_file_path)
-    #         self.log(f"[BACKUP] {source_path} -> {backup_file_path}", "load")
-    #         messagebox.showinfo("Backup", f"File backed up successfully:\n{backup_file_path}")
-    #     except Exception as e:
-    #         self.log(f"[ERROR] Failed to backup {source_path}: {e}", "load")
-    #         messagebox.showerror("Backup Error", f"Failed to backup file:\n{e}")
-
-
-
-    # def select_backup_file(self):
-    #     """Allow user to select a file or directory to back up and choose where to save it."""
-    #     # Step 1: Select file or directory to back up
-    #     source_path = filedialog.askopenfilename(
-    #         title="Select File to Backup",
-    #         filetypes=(("All files", "*.*"),)
-    #     )
-    #     if not source_path:
-    #         return  # User cancelled the operation
-
-    #     # Step 2: Select destination directory for backup
-    #     destination_root = filedialog.askdirectory(
-    #         title="Select Destination Folder for Backup"
-    #     )
-    #     if not destination_root:
-    #         return  # User cancelled the operation
-
-    #     # Step 3: Determine backup folder name
-    #     backup_folder_name = "VWARbackup"
-    #     backup_folder_path = os.path.join(destination_root, backup_folder_name)
-
-    #     # Step 4: Create backup folder if it doesn't exist
-    #     if not os.path.exists(backup_folder_path):
-    #         os.makedirs(backup_folder_path)
-
-    #     # Step 5: Create date-based folder inside backup folder
-    #     today = datetime.now().strftime("%Y-%m-%d")
-    #     date_folder_path = os.path.join(backup_folder_path, today)
-    #     os.makedirs(date_folder_path, exist_ok=True)
-
-    #     # Step 6: Copy the selected file into the date-based folder
-    #     try:
-    #         filename = os.path.basename(source_path)
-    #         backup_file_path = os.path.join(date_folder_path, filename + ".backup")
-    #         shutil.copy2(source_path, backup_file_path)
-    #         self.log(f"[BACKUP] {source_path} -> {backup_file_path}", "load")
-    #         messagebox.showinfo("Backup", f"File backed up successfully:\n{backup_file_path}")
-    #     except Exception as e:
-    #         self.log(f"[ERROR] Failed to backup {source_path}: {e}", "load")
-    #         messagebox.showerror("Backup Error", f"Failed to backup file:\n{e}")
-
-    # def select_backup_file(self):
-    #     """Allow user to select a file to back up in a date-based directory."""
-    #     file_path = filedialog.askopenfilename(title="Select File to Backup", filetypes=(("All files", "*.*"),))
-    #     if file_path:
-    #         today = datetime.now().strftime("%Y-%m-%d")  # Get current date
-    #         daily_backup_folder = os.path.join(self.backup_folder, today)  # Backup folder for today
-
-    #         os.makedirs(daily_backup_folder, exist_ok=True)  # Ensure folder exists
-
-    #         backup_path = os.path.join(daily_backup_folder, os.path.basename(file_path) + ".backup")
-            
-    #         try:
-    #             shutil.copy(file_path, backup_path)  # Copy file to daily folder
-    #             self.log(f"[BACKUP] {file_path} -> {backup_path}", "load")
-    #         except Exception as e:
-    #             self.log(f"[ERROR] Failed to backup {file_path}: {e}", "load")
-       
-       
-
-
-         
-                
-    # def restore_backup(self):
-    #     """Restore a backup file from the daily backup folder."""
-    #     today = datetime.now().strftime("%Y-%m-%d")  # Current date
-    #     backup_folders = [f for f in os.listdir(self.backup_folder) if os.path.isdir(os.path.join(self.backup_folder, f))]
-
-    #     if not backup_folders:
-    #         messagebox.showinfo("Restore Backup", "No backups found.")
-    #         return
-
-    #     # Let user choose a date folder
-    #     selected_date = filedialog.askdirectory(initialdir=self.backup_folder, title="Select Backup Date Folder")
-    #     if not selected_date or not os.path.exists(selected_date):
-    #         return
-
-    #     # Let user select a file from that date's backup folder
-    #     file_path = filedialog.askopenfilename(initialdir=selected_date, title="Select Backup to Restore",
-    #                                         filetypes=(("Backup files", "*.backup"),))
-    #     if file_path:
-    #         original_name = os.path.basename(file_path).replace(".backup", "")
-    #         restore_path = filedialog.asksaveasfilename(initialfile=original_name, title="Save Restored File")
-    #         if restore_path:
-    #             try:
-    #                 shutil.copy(file_path, restore_path)
-    #                 self.log(f"[RESTORED] {file_path} -> {restore_path}", "load")
-    #             except Exception as e:
-    #                 self.log(f"[ERROR] Failed to restore {file_path}: {e}", "load")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+   
+        
 
     def create_backup_page(self):
             """Create the Backup Page with Menu, Manual Backup, Restore, Auto Backup."""
@@ -1237,15 +828,11 @@ class VWARScannerGUI:
             self.pages["backup"] = backup_page
 
             Button(backup_page, text="Back", command=lambda: self.show_page("home"),
-                bg="gray", fg="white", font=("Inter", 12)).place(x=10, y=10, width=80, height=30)
+                bg="blue", fg="white", font=("Inter", 12)).place(x=10, y=10, width=80, height=30)
 
             # Create internal frames
             self.menu_frame = Frame(backup_page, bg="#009AA5")
             self.menu_frame.place(x=0, y=50, relwidth=1, relheight=1)
-
-            self.manual_backup_frame = Frame(backup_page, bg="#009AA5")
-            self.manual_backup_frame.place(x=0, y=50, relwidth=1, relheight=1)
-            self.manual_backup_frame.place_forget()  # Hide manual backup at start
 
             # === Menu Frame contents ===
             Button(self.menu_frame, text="Manual Backup", command=self.show_manual_backup,
@@ -1259,8 +846,16 @@ class VWARScannerGUI:
 
             # === Manual Backup Frame contents ===
             # ===  backup Button ===
+            self.manual_backup_frame = Frame(backup_page, bg="#009AA5")
+            self.manual_backup_frame.place(x=0, y=50, relwidth=1, relheight=1)
+            self.manual_backup_frame.place_forget()  # Hide manual backup at start
+
+
             Button(self.manual_backup_frame, text="Back", command=self.show_menu_frame,
-                bg="gray", fg="white", font=("Inter", 12)).place(x=10, y=10, width=80, height=30)
+                bg="red", fg="white", font=("Inter", 12)).place(x=10, y=10, width=80, height=30)
+            
+            Label(self.manual_backup_frame, text="Manual Backup", font=("Inter", 14, "bold"),
+                bg="#009AA5", fg="black").place(x=400, y=10)
 
             Label(self.manual_backup_frame, text="Selected Files to Backup", font=("Inter", 14, "bold"),
                 bg="#009AA5", fg="white").place(x=20, y=70)
@@ -1300,25 +895,26 @@ class VWARScannerGUI:
                                             state="disabled", bg="#006666", fg="white", font=("Inter", 12, "bold"))
             self.start_backup_button.place(x=600, y=230, width=180, height=40)
 
-            self.selected_files = []
-            self.selected_backup_folder = ""
+           
             # ===  backup Button ===
             #  === Manual Backup Frame contents ===
             
             
             
             self.restore_backup_frame = Frame(backup_page, bg="#009AA5")
-            self.restore_backup_frame.place(x=0, y=50, relwidth=1, relheight=1)
+            self.restore_backup_frame.place(x=0, y=30, relwidth=1, relheight=1)
             self.restore_backup_frame.place_forget()  # Initially hidden
             
             
             # === Restore Backup Frame contents ===
             Button(self.restore_backup_frame, text="Back", command=self.show_menu_frame,
-                bg="gray", fg="white", font=("Inter", 12)).place(x=10, y=10, width=80, height=30)
+                bg="yellow", fg="white", font=("Inter", 12)).place(x=10, y=10, width=80, height=30)
 
+            Label(self.restore_backup_frame, text="Restore Backup", font=("Inter", 14, "bold"),
+                bg="#009AA5", fg="black").place(x=400, y=10)
             # Step 1: Select VWARbackup Folder
             Label(self.restore_backup_frame, text="Step 1: Select VWARbackup Folder", font=("Inter", 14, "bold"),
-                bg="#009AA5", fg="white").place(x=20, y=30)
+                bg="#009AA5", fg="white").place(x=20, y=40)
 
             self.vwar_folder_label = Label(
                 self.restore_backup_frame,
@@ -1376,28 +972,28 @@ class VWARScannerGUI:
             self.start_restore_button.place(x=600, y=320, width=180, height=40)
             
                 
-            self.selected_vwar_folder = ""
-            self.selected_restore_file = ""
-            self.selected_restore_folder = ""
-            
-                        
+           
+    def hide_all_frames(self):
+        self.menu_frame.place_forget()
+        self.manual_backup_frame.place_forget()
+        self.restore_backup_frame.place_forget() 
+                            
             
     # === Frame switchers ===
 
     def show_manual_backup(self):
-        """Show manual backup frame."""
-        self.menu_frame.place_forget()
+        self.hide_all_frames()
         self.manual_backup_frame.place(x=0, y=50, relwidth=1, relheight=1)
 
     def show_menu_frame(self):
-        """Show the main menu frame."""
-        self.manual_backup_frame.place_forget()
+        self.hide_all_frames()
         self.menu_frame.place(x=0, y=50, relwidth=1, relheight=1)
         
         
     def show_restore_backup(self):
-        self.menu_frame.place_forget()
+        self.hide_all_frames()
         self.restore_backup_frame.place(x=0, y=50, relwidth=1, relheight=1)
+        print("show_restore_backup")
 
     def auto_backup_placeholder(self):
         """Placeholder function for Auto Backup button."""
@@ -1515,7 +1111,9 @@ class VWARScannerGUI:
 
   # === Helper restore methods ===
 
-
+    def hide_all_frames(self):
+        for frame in [self.menu_frame, self.manual_backup_frame, self.restore_backup_frame]:
+            frame.place_forget()
 
 
 class FileMonitorHandler(FileSystemEventHandler):
@@ -1530,14 +1128,19 @@ class FileMonitorHandler(FileSystemEventHandler):
             # Ask user if they want to scan the new file
             self.prompt_scan(file_path)
 
+    # def prompt_scan(self, file_path):
+    #     """Show a pop-up asking if the user wants to scan the detected file."""
+    #     def scan_decision():
+    #         threading.Thread(target=self.scanner.scan_file, args=(file_path,), daemon=True).start()
+    #         # messagebox.askyesno("New File Detected", f"Scan new file?\n{file_path}")
+    #         self.scanner.scan_file(file_path)  # Use VWAR's scanning function
+
+
     def prompt_scan(self, file_path):
-        """Show a pop-up asking if the user wants to scan the detected file."""
         def scan_decision():
-            # messagebox.askyesno("New File Detected", f"Scan new file?\n{file_path}")
-            self.scanner.scan_file(file_path)  # Use VWAR's scanning function
-        
-        # Run the prompt in the main GUI thread
+            threading.Thread(target=self.scanner.scan_file, args=(file_path,), daemon=True).start()
         self.scanner.root.after(0, scan_decision)
+        
 
 class RealTimeMonitor:
     def __init__(self, scanner, watch_path):
