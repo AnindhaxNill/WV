@@ -2,7 +2,7 @@ import threading
 import yara
 import os
 import shutil
-from tkinter import Tk, Frame, Canvas, Label, Text, Button, filedialog, messagebox,Scrollbar,StringVar,Toplevel, Listbox,ttk
+from tkinter import Tk, Frame, Canvas, Label, Text, Button, filedialog, messagebox,Scrollbar,StringVar,Toplevel, Listbox,ttk,Entry
 from tkinter.ttk import Progressbar
 import requests
 import time
@@ -39,7 +39,8 @@ class VWARScannerGUI:
         self.root = root
         self.root.title("VWAR Scanner")
         # self.watch_path = "C:/"  # Change this to the directory you want to monitor
-        self.watch_path="E:/vwar/WV-master/New folder"
+        # self.watch_path="E:/vwar/WV-master/New folder"
+        self.watch_path="D:\soft"
         self.monitor = RealTimeMonitor(self, self.watch_path)
         self.monitor.start()  # Start real-time monitoring
         self.rule_folder = os.path.join(os.getcwd(), "yara")
@@ -57,8 +58,14 @@ class VWARScannerGUI:
         self.selected_restore_file = ""
         self.selected_restore_folder = ""
         
-        
-        
+        self.auto_backup_frame = Frame(self.root, bg="white")
+        self.backup_time_var = StringVar()
+        self.auto_backup_folders = []
+        self.auto_backup_running = False
+        self.auto_backup_thread = None
+        self.selected_backup_folder = ""
+
+                
         # GUI Configuration
         root.geometry("1043x722")
         root.configure(bg="#009AA5")
@@ -102,6 +109,7 @@ class VWARScannerGUI:
         self.create_scanning_page()
         self.create_backup_page()
         self.create_auto_scanning_page()
+        self.build_auto_backup_page()
 
         # Show home page initially
         self.show_page("home")
@@ -841,7 +849,7 @@ class VWARScannerGUI:
             Button(self.menu_frame, text="Restore Files", command=self.show_restore_backup,
                 bg="#004953", fg="white", font=("Inter", 14, "bold")).place(relx=0.3, rely=0.4, width=200, height=60)
 
-            Button(self.menu_frame, text="Auto Backup", command=self.auto_backup_placeholder,
+            Button(self.menu_frame, text="Auto Backup", command=self.show_auto_backup,
                 bg="#004953", fg="white", font=("Inter", 14, "bold")).place(relx=0.3, rely=0.6, width=200, height=60)
 
             # === Manual Backup Frame contents ===
@@ -899,11 +907,15 @@ class VWARScannerGUI:
             # ===  backup Button ===
             #  === Manual Backup Frame contents ===
             
-            
+            # === Restore Backup Frame contents ===
             
             self.restore_backup_frame = Frame(backup_page, bg="#009AA5")
             self.restore_backup_frame.place(x=0, y=30, relwidth=1, relheight=1)
             self.restore_backup_frame.place_forget()  # Initially hidden
+            
+            
+            
+            
             
             
             # === Restore Backup Frame contents ===
@@ -971,14 +983,23 @@ class VWARScannerGUI:
                 state="disabled", bg="#006666", fg="white", font=("Inter", 12, "bold"))
             self.start_restore_button.place(x=600, y=320, width=180, height=40)
             
+             # === Restore Backup Frame contents ===
                 
            
-    def hide_all_frames(self):
-        self.menu_frame.place_forget()
-        self.manual_backup_frame.place_forget()
-        self.restore_backup_frame.place_forget() 
-                            
+           
+           # === Auto Backup Frame ===
+
             
+            self.auto_backup_frame = Frame(backup_page, bg="#009AA5")
+            self.auto_backup_frame.place(x=0, y=30, relwidth=1, relheight=1)
+            self.auto_backup_frame.place_forget() 
+
+            # === Auto Backup Frame ===
+
+    def hide_all_frames(self):
+        for frame in [self.menu_frame, self.manual_backup_frame, self.restore_backup_frame, self.auto_backup_frame]:
+            frame.place_forget()     
+           
     # === Frame switchers ===
 
     def show_manual_backup(self):
@@ -993,11 +1014,12 @@ class VWARScannerGUI:
     def show_restore_backup(self):
         self.hide_all_frames()
         self.restore_backup_frame.place(x=0, y=50, relwidth=1, relheight=1)
-        print("show_restore_backup")
 
-    def auto_backup_placeholder(self):
-        """Placeholder function for Auto Backup button."""
-        messagebox.showinfo("Coming Soon", "Auto Backup is not available yet!")
+
+    def show_auto_backup(self):
+        self.hide_all_frames()
+        # self.menu_frame.place_forget()
+        self.auto_backup_frame.place(x=0, y=50, relwidth=1, relheight=1)
         # === Helper backup methods ===
 
         # def show_manual_backup(self):
@@ -1059,6 +1081,8 @@ class VWARScannerGUI:
 
  # === Helper backup methods ===
  
+ 
+ 
   # === Helper restore methods ===
  
     def select_restore_file(self):
@@ -1111,9 +1135,241 @@ class VWARScannerGUI:
 
   # === Helper restore methods ===
 
-    def hide_all_frames(self):
-        for frame in [self.menu_frame, self.manual_backup_frame, self.restore_backup_frame]:
-            frame.place_forget()
+
+
+
+
+
+    # def build_auto_backup_page(self):
+    #     self.auto_backup_frame.config(bg="#009AA5")
+
+    #     Label(self.auto_backup_frame, text="Auto Backup Settings", font=("Inter", 18, "bold"),
+    #         bg="#009AA5", fg="white").place(x=300, y=10)
+
+    #     # Step 1: Select folders
+    #     Label(self.auto_backup_frame, text="Step 1: Select Folders to Backup", font=("Inter", 14, "bold"),
+    #         bg="#009AA5", fg="white").place(x=20, y=60)
+
+    #     self.selected_folders_label = Label(self.auto_backup_frame, text="No folders selected", font=("Inter", 11),
+    #                                         bg="white", fg="black", anchor="w", relief="sunken")
+    #     self.selected_folders_label.place(x=20, y=100, width=500, height=30)
+
+    #     Button(self.auto_backup_frame, text="Select Folders", command=self.select_auto_backup_folders,
+    #         bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=100, width=180, height=40)
+
+    #     # Step 2: Select Time
+    #     Label(self.auto_backup_frame, text="Step 2: Set Daily Backup Time (HH:MM)", font=("Inter", 14, "bold"),
+    #         bg="#009AA5", fg="white").place(x=20, y=160)
+
+    #     self.backup_time_entry = Entry(self.auto_backup_frame, textvariable=self.backup_time_var, font=("Inter", 12))
+    #     self.backup_time_entry.place(x=20, y=200, width=120, height=30)
+
+    #     # Step 3: Control Buttons
+    #     Label(self.auto_backup_frame, text="Step 3: Start or Stop Auto Backup", font=("Inter", 14, "bold"),
+    #         bg="#009AA5", fg="white").place(x=20, y=260)
+
+    #     self.start_button = Button(self.auto_backup_frame, text="Start Auto Backup", command=self.start_auto_backup,
+    #                             bg="#006666", fg="white", font=("Inter", 12, "bold"))
+    #     self.start_button.place(x=20, y=300, width=180, height=40)
+
+    #     self.stop_button = Button(self.auto_backup_frame, text="Stop Auto Backup", command=self.stop_auto_backup,
+    #                             state="disabled", bg="#993333", fg="white", font=("Inter", 12, "bold"))
+    #     self.stop_button.place(x=220, y=300, width=180, height=40)
+
+    #     # Back Button
+    #     Button(self.auto_backup_frame, text="Back", command=self.show_menu_frame,
+    #         bg="pink", fg="black", font=("Inter", 12)).place(x=10, y=10, width=80, height=30)
+        
+    #     Button(self.auto_backup_frame, text="Select Backup Destination", command=self.select_auto_backup_destination).pack(pady=5)
+    #     self.auto_backup_dest_label = Label(self.auto_backup_frame, text="No destination selected", bg="white")
+    #     self.auto_backup_dest_label.pack()
+    #     self.load_auto_backup_settings()    
+    def build_auto_backup_page(self):
+        self.auto_backup_frame.config(bg="#009AA5")
+
+        Label(self.auto_backup_frame, text="Auto Backup Settings", font=("Inter", 18, "bold"),
+            bg="#009AA5", fg="white").place(x=300, y=10)
+
+        # Step 1: Select folders
+        Label(self.auto_backup_frame, text="Step 1: Select Folders to Backup", font=("Inter", 14, "bold"),
+            bg="#009AA5", fg="white").place(x=20, y=60)
+
+        self.selected_folders_label = Label(self.auto_backup_frame, text="No folders selected", font=("Inter", 11),
+                                            bg="white", fg="black", anchor="w", relief="sunken")
+        self.selected_folders_label.place(x=20, y=100, width=500, height=30)
+
+        Button(self.auto_backup_frame, text="Select Folders", command=self.select_auto_backup_folders,
+            bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=100, width=180, height=40)
+
+        # Step 2: Select Time
+        Label(self.auto_backup_frame, text="Step 2: Set Daily Backup Time (HH:MM) 24 hour clock", font=("Inter", 14, "bold"),
+            bg="#009AA5", fg="white").place(x=20, y=160)
+
+        self.backup_time_entry = Entry(self.auto_backup_frame, textvariable=self.backup_time_var, font=("Inter", 12))
+        self.backup_time_entry.place(x=20, y=200, width=120, height=30)
+
+        # Step 3: Select Backup Destination
+        Label(self.auto_backup_frame, text="Step 3: Select Backup Destination", font=("Inter", 14, "bold"),
+            bg="#009AA5", fg="white").place(x=20, y=250)
+
+        self.auto_backup_dest_label = Label(self.auto_backup_frame, text="No destination selected",
+                                            font=("Inter", 11), bg="white", fg="black", anchor="w", relief="sunken")
+        self.auto_backup_dest_label.place(x=20, y=290, width=500, height=30)
+
+        Button(self.auto_backup_frame, text="Select Backup Destination", command=self.select_auto_backup_destination,
+            bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=290, width=180, height=40)
+
+        # Step 4: Control Buttons
+        Label(self.auto_backup_frame, text="Step 4: Start or Stop Auto Backup", font=("Inter", 14, "bold"),
+            bg="#009AA5", fg="white").place(x=20, y=340)
+
+        self.start_button = Button(self.auto_backup_frame, text="Start Auto Backup", command=self.start_auto_backup,
+                                bg="#006666", fg="white", font=("Inter", 12, "bold"))
+        self.start_button.place(x=20, y=380, width=180, height=40)
+
+        self.stop_button = Button(self.auto_backup_frame, text="Stop Auto Backup", command=self.stop_auto_backup,
+                                state="disabled", bg="#993333", fg="white", font=("Inter", 12, "bold"))
+        self.stop_button.place(x=220, y=380, width=180, height=40)
+
+        # Back Button
+        Button(self.auto_backup_frame, text="Back", command=self.show_menu_frame,
+            bg="pink", fg="black", font=("Inter", 12)).place(x=10, y=10, width=80, height=30)
+
+        self.load_auto_backup_settings()
+
+
+    def select_auto_backup_folders(self):
+        folders = filedialog.askdirectory(mustexist=True, title="Select Folder to Backup")
+        if folders:
+            self.auto_backup_folders = [folders]
+            self.selected_folders_label.config(text="\n".join(self.auto_backup_folders))
+
+
+
+    def auto_backup_worker(self):
+        day_index = 0  # 0 to 6
+
+        while self.auto_backup_running:
+            now = datetime.now()
+            target_time = self.backup_time_var.get()
+
+            try:
+                backup_hour, backup_minute = map(int, target_time.split(":"))
+            except ValueError:
+                self.log("[ERROR] Invalid time format.", "load")
+                break
+
+            while self.auto_backup_running:
+                now = datetime.now()
+                if now.hour == backup_hour and now.minute == backup_minute:
+                    self.perform_rotating_backup(day_index)
+                    day_index = (day_index + 1) % 7
+                    time.sleep(60)  # Wait a minute before checking again
+                time.sleep(5)
+
+
+    def start_auto_backup(self):
+        if not self.auto_backup_folders or not self.backup_time_var.get() or not hasattr(self, 'auto_backup_destination'):
+            messagebox.showwarning("Missing Info", "Please select folders, destination, and set time.")
+            return
+        self.auto_backup_running = True
+        self.start_button.config(state="disabled")
+        self.stop_button.config(state="normal")
+
+        self.auto_backup_thread = threading.Thread(target=self.auto_backup_worker, daemon=True)
+        self.auto_backup_thread.start()
+        self.log("[AUTO BACKUP] Started", "load")
+        self.save_auto_backup_settings()
+
+
+    def stop_auto_backup(self):
+        self.auto_backup_running = False
+        self.start_button.config(state="normal")
+        self.stop_button.config(state="disabled")
+        self.log("[AUTO BACKUP] Stopped", "load")
+        
+        
+    def perform_rotating_backup(self, day_index):
+        today_folder_name = f"day_{day_index+1}"
+        backup_root = os.path.join(self.auto_backup_destination, "AutoBackup")  # ✅ Corrected
+        day_folder = os.path.join(backup_root, today_folder_name)
+
+        os.makedirs(day_folder, exist_ok=True)
+
+        try:
+            for folder in self.auto_backup_folders:
+                for root_dir, _, files in os.walk(folder):
+                    for file in files:
+                        src_file = os.path.join(root_dir, file)
+                        rel_path = os.path.relpath(src_file, folder)
+                        dest_file = os.path.join(day_folder, rel_path + ".backup")
+
+                        os.makedirs(os.path.dirname(dest_file), exist_ok=True)
+                        shutil.copy2(src_file, dest_file)
+
+            self.log(f"[AUTO BACKUP] Completed for {today_folder_name}", "load")
+        except Exception as e:
+            self.log(f"[ERROR] Auto Backup failed: {e}", "load")
+
+
+
+
+    def select_auto_backup_destination(self):
+        destination = filedialog.askdirectory(title="Select Destination for Auto Backup")
+        if not destination:
+            return
+        if os.path.basename(destination) == "VWARbackup":
+            self.auto_backup_destination = destination
+        else:
+            self.auto_backup_destination = os.path.join(destination, "VWARbackup")
+            os.makedirs(self.auto_backup_destination, exist_ok=True)
+        
+        self.auto_backup_dest_label.config(text=self.auto_backup_destination)
+
+
+
+    def save_auto_backup_settings(self):
+        config = {
+            "folders": self.auto_backup_folders,
+            "time": self.backup_time_var.get(),
+            "destination": self.auto_backup_destination
+        }
+        with open("auto_backup_config.json", "w") as f:
+            json.dump(config, f)
+
+
+    def load_auto_backup_settings(self):
+        try:
+            with open("auto_backup_config.json", "r") as f:
+                config = json.load(f)
+                self.auto_backup_folders = config.get("folders", [])
+                self.backup_time_var.set(config.get("time", ""))
+                self.auto_backup_destination = config.get("destination", "")
+
+                # Update UI labels
+                if self.auto_backup_folders:
+                    self.selected_folders_label.config(text="\n".join(self.auto_backup_folders))
+                if self.auto_backup_destination:
+                    self.auto_backup_dest_label.config(text=self.auto_backup_destination)
+
+                # Automatically start if settings are valid
+                if self.auto_backup_folders and self.backup_time_var.get() and self.auto_backup_destination:
+                    self.start_auto_backup()
+
+        except Exception as e:
+            self.log(f"[AUTO BACKUP] Failed to load settings: {e}", "load")
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 class FileMonitorHandler(FileSystemEventHandler):
