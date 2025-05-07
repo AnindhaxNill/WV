@@ -231,12 +231,27 @@ class VWARScannerGUI:
         Button(home_page, text="auto_scanning", command=lambda: self.show_page("auto_scanning"), bg="green", fg="white",
                font=("Inter", 16)).place(x=400, y=400, width=200, height=50)
         
-        self.home_scan_progress = ttk.Progressbar(
-            home_page,
-            mode='indeterminate',
-            length=200
-                    )
-        self.home_scan_progress.place(x=20, y=470)
+
+        
+        
+        # Label title for clarity
+        Label(
+            self.root,
+            text="Auto Scanning Status",
+            font=("Inter", 10, "bold"),
+            bg="#009AA5",
+            fg="white"
+        ).place(x=110, y=540)
+
+        # Blinking status label
+        self.home_scan_status_label = Label(
+            self.root,
+            text="Status: Stopped",
+            font=("Inter", 12, "bold"),
+            bg="#009AA5",
+            fg="red"
+        )
+        self.home_scan_status_label.place(x=110, y=570)
         
         
   
@@ -572,14 +587,42 @@ class VWARScannerGUI:
         self.monitoring_active = False
         
         
-        self.auto_scan_progress = ttk.Progressbar(
-            auto_scanning_page,
-            mode='indeterminate',
-            length=200
-        )
-        self.auto_scan_progress.place(x=20, y=470)
+        # self.auto_scan_progress = ttk.Progressbar(
+        #     auto_scanning_page,
+        #     mode='indeterminate',
+        #     length=200
+        # )
+        # self.auto_scan_progress.place(x=20, y=470)
 
-    
+    # Add a new status label for auto scanning status animation
+        self.auto_scan_status_label = Label(
+            auto_scanning_page,
+            text="Status: Stopped",
+            font=("Inter", 12, "bold"),
+            bg="#009AA5",
+            fg="red"
+        )
+        self.auto_scan_status_label.place(x=20, y=470)
+        
+        
+        # def start_auto_scanning():
+        #     if not self.monitoring_active:
+        #         self.monitor = RealTimeMonitor(self, self.watch_path)
+        #         self.monitor.start()
+        #         self.monitoring_active = True
+        #         self.auto_scan_button_text.set("Stop Auto Scanning")
+        #         self.auto_scan_progress.start(10)  # Start the animation with a 10ms interval
+        #         self.home_scan_progress.start(10)  # Start home page animation
+        #         self.log("[INFO] Auto scanning started.", "load")
+
+        # def stop_auto_scanning():
+        #     if self.monitoring_active and hasattr(self, 'monitor'):
+        #         self.monitor.stop()
+        #         self.monitoring_active = False
+        #         self.auto_scan_button_text.set("Start Auto Scanning")
+        #         self.auto_scan_progress.stop()  # Stop the animation
+        #         self.home_scan_progress.stop()  # Stop home page animation
+        #         self.log("[INFO] Auto scanning stopped.", "load")
         
         
         def start_auto_scanning():
@@ -588,8 +631,10 @@ class VWARScannerGUI:
                 self.monitor.start()
                 self.monitoring_active = True
                 self.auto_scan_button_text.set("Stop Auto Scanning")
-                self.auto_scan_progress.start(10)  # Start the animation with a 10ms interval
-                self.home_scan_progress.start(10)  # Start home page animation
+                # Instead of starting a progress bar, start the blinking animation:
+                self.animate_auto_scan_status()
+                # Optionally, keep the home page animation if desired:
+                # self.home_scan_progress()
                 self.log("[INFO] Auto scanning started.", "load")
 
         def stop_auto_scanning():
@@ -597,9 +642,10 @@ class VWARScannerGUI:
                 self.monitor.stop()
                 self.monitoring_active = False
                 self.auto_scan_button_text.set("Start Auto Scanning")
-                self.auto_scan_progress.stop()  # Stop the animation
-                self.home_scan_progress.stop()  # Stop home page animation
+                # No need to call a stop() on the progress bar. The animation method will update the status label.
+                # self.home_scan_progress()  # Optionally stop the home page animation if needed.
                 self.log("[INFO] Auto scanning stopped.", "load")
+
 
         def toggle_auto_scanning():
             if self.monitoring_active:
@@ -825,8 +871,40 @@ class VWARScannerGUI:
 
         # Initial load
         self.update_quarantine_listbox()
+    
+    
+    
+    
         refresh_quarantine_list()
         
+    
+    def animate_auto_scan_status(self):
+        if self.monitoring_active:
+            current = self.auto_scan_status_label.cget("text")
+            # Toggle dot for blinking effect
+            if "●" in current:
+                new_text = "Status: Running   "
+            else:
+                new_text = "Status: Running ●"
+            # Update both labels
+            self.auto_scan_status_label.config(text=new_text, fg="green")
+            self.home_scan_status_label.config(text=new_text, fg="green")
+            self.root.after(500, self.animate_auto_scan_status)
+        else:
+            self.auto_scan_status_label.config(text="Status: Stopped", fg="red")
+            self.home_scan_status_label.config(text="Status: Stopped", fg="red")
+
+
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
    
         
 
@@ -1136,54 +1214,6 @@ class VWARScannerGUI:
   # === Helper restore methods ===
 
 
-
-
-
-
-    # def build_auto_backup_page(self):
-    #     self.auto_backup_frame.config(bg="#009AA5")
-
-    #     Label(self.auto_backup_frame, text="Auto Backup Settings", font=("Inter", 18, "bold"),
-    #         bg="#009AA5", fg="white").place(x=300, y=10)
-
-    #     # Step 1: Select folders
-    #     Label(self.auto_backup_frame, text="Step 1: Select Folders to Backup", font=("Inter", 14, "bold"),
-    #         bg="#009AA5", fg="white").place(x=20, y=60)
-
-    #     self.selected_folders_label = Label(self.auto_backup_frame, text="No folders selected", font=("Inter", 11),
-    #                                         bg="white", fg="black", anchor="w", relief="sunken")
-    #     self.selected_folders_label.place(x=20, y=100, width=500, height=30)
-
-    #     Button(self.auto_backup_frame, text="Select Folders", command=self.select_auto_backup_folders,
-    #         bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=100, width=180, height=40)
-
-    #     # Step 2: Select Time
-    #     Label(self.auto_backup_frame, text="Step 2: Set Daily Backup Time (HH:MM)", font=("Inter", 14, "bold"),
-    #         bg="#009AA5", fg="white").place(x=20, y=160)
-
-    #     self.backup_time_entry = Entry(self.auto_backup_frame, textvariable=self.backup_time_var, font=("Inter", 12))
-    #     self.backup_time_entry.place(x=20, y=200, width=120, height=30)
-
-    #     # Step 3: Control Buttons
-    #     Label(self.auto_backup_frame, text="Step 3: Start or Stop Auto Backup", font=("Inter", 14, "bold"),
-    #         bg="#009AA5", fg="white").place(x=20, y=260)
-
-    #     self.start_button = Button(self.auto_backup_frame, text="Start Auto Backup", command=self.start_auto_backup,
-    #                             bg="#006666", fg="white", font=("Inter", 12, "bold"))
-    #     self.start_button.place(x=20, y=300, width=180, height=40)
-
-    #     self.stop_button = Button(self.auto_backup_frame, text="Stop Auto Backup", command=self.stop_auto_backup,
-    #                             state="disabled", bg="#993333", fg="white", font=("Inter", 12, "bold"))
-    #     self.stop_button.place(x=220, y=300, width=180, height=40)
-
-    #     # Back Button
-    #     Button(self.auto_backup_frame, text="Back", command=self.show_menu_frame,
-    #         bg="pink", fg="black", font=("Inter", 12)).place(x=10, y=10, width=80, height=30)
-        
-    #     Button(self.auto_backup_frame, text="Select Backup Destination", command=self.select_auto_backup_destination).pack(pady=5)
-    #     self.auto_backup_dest_label = Label(self.auto_backup_frame, text="No destination selected", bg="white")
-    #     self.auto_backup_dest_label.pack()
-    #     self.load_auto_backup_settings()    
     def build_auto_backup_page(self):
         self.auto_backup_frame.config(bg="#009AA5")
 
@@ -1234,6 +1264,11 @@ class VWARScannerGUI:
         # Back Button
         Button(self.auto_backup_frame, text="Back", command=self.show_menu_frame,
             bg="pink", fg="black", font=("Inter", 12)).place(x=10, y=10, width=80, height=30)
+        
+        
+        self.auto_status_label = Label(self.auto_backup_frame, text="Status: Stopped", font=("Inter", 12, "bold"),
+                               bg="#009AA5", fg="white")
+        self.auto_status_label.place(x=420, y=400)
 
         self.load_auto_backup_settings()
 
@@ -1280,6 +1315,7 @@ class VWARScannerGUI:
         self.auto_backup_thread.start()
         self.log("[AUTO BACKUP] Started", "load")
         self.save_auto_backup_settings()
+        self.animate_auto_backup_status()
 
 
     def stop_auto_backup(self):
@@ -1362,6 +1398,16 @@ class VWARScannerGUI:
 
 
 
+    def animate_auto_backup_status(self):
+        if self.auto_backup_running:
+            current = self.auto_status_label.cget("text")
+            if "●" in current:
+                self.auto_status_label.config(text="Status: Running   ", fg="green")
+            else:
+                self.auto_status_label.config(text="Status: Running ●" ,fg="green")
+            self.root.after(500, self.animate_auto_backup_status)
+        else:
+            self.auto_status_label.config(text="Status: Stopped", fg="red")
 
 
 
