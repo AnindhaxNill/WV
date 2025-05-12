@@ -18,6 +18,32 @@ import threading
 import json
 from plyer import notification
 
+class Tooltip:
+    def __init__(self, widget, text):
+        self.widget = widget
+        self.text = text
+        self.tooltip = None
+        self.widget.bind("<Enter>", self.show)
+        self.widget.bind("<Leave>", self.hide)
+
+    def show(self, event=None):
+        if self.tooltip or not self.text:
+            return
+        x = self.widget.winfo_rootx() + 20
+        y = self.widget.winfo_rooty() + 20
+        self.tooltip = tw = Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.geometry(f"+{x}+{y}")
+        label = Label(tw, text=self.text, justify='left',
+                      background="#ffffe0", relief='solid', borderwidth=1,
+                      font=("tahoma", "8", "normal"))
+        label.pack(ipadx=1)
+
+    def hide(self, event=None):
+        if self.tooltip:
+            self.tooltip.destroy()
+            self.tooltip = None
+
 
 
 def decode_base64(encoded_string):
@@ -42,7 +68,45 @@ class VWARScannerGUI:
         # self.watch_path="E:/vwar/WV-master/New folder"
         self.watch_path="D:\soft"
         self.monitor = RealTimeMonitor(self, self.watch_path)
-        self.monitor.start()  # Start real-time monitoring
+        # self.monitor.start()  # Start real-time monitoring
+        
+        
+        
+        # Initialize monitoring state
+        self.monitoring_active = False  # Must be False so scanning actually starts
+        self.auto_scan_button_text = StringVar(value="Start Auto Scanning")  # Initial label
+        
+        # Create the status label
+        self.auto_scan_status_label = Label(
+            self.root,
+            text="Status: Running ●",
+            font=("Inter", 12, "bold"),
+            bg="#009AA5",
+            fg="green"
+        )
+        self.auto_scan_status_label.place(x=20, y=470)
+        
+        
+            # Create the home scan status label
+        self.home_scan_status_label = Label(
+            self.root,
+            text="Status: Running ●",
+            font=("Inter", 12, "bold"),
+            bg="#009AA5",
+            fg="green"
+        )
+        self.home_scan_status_label.place(x=110, y=570)
+
+        # Create the button for auto scanning toggle
+        Button(self.root, textvariable=self.auto_scan_button_text,
+            command=self.toggle_auto_scanning, bg="#004953", fg="white",
+            font=("Inter", 12, "bold")).place(x=20, y=420, width=200, height=40)
+        
+        
+        
+        
+        
+        
         self.rule_folder = os.path.join(os.getcwd(), "yara")
         self.quarantine_folder = os.path.join(os.getcwd(), "quarantine")
         self.backup_folder = os.path.join(os.getcwd(), "backup")
@@ -109,6 +173,7 @@ class VWARScannerGUI:
         self.create_scanning_page()
         self.create_backup_page()
         self.create_auto_scanning_page()
+        self.start_auto_scanning()
         self.build_auto_backup_page()
 
         # Show home page initially
@@ -181,7 +246,17 @@ class VWARScannerGUI:
             timeout=10  # duration in seconds
         )     
             
-
+    # def notify_match(self, file_path, matches):
+    #     """Show a popup notification when a match is found."""
+    #     try:
+    #         filename = os.path.basename(file_path)
+    #         match_text = ", ".join(matches)
+    #         messagebox.showwarning(
+    #             "⚠️ Match Detected!",
+    #             f"File: {filename}\nMatched Rule(s): {match_text}\nThe file has been quarantined."
+    #         )
+    #     except Exception as e:
+    #         self.log(f"[ERROR] Notification failed: {e}", "load")
 
     def create_folders(self):
         """Ensure required folders exist."""
@@ -189,7 +264,11 @@ class VWARScannerGUI:
         os.makedirs(self.quarantine_folder, exist_ok=True)
         os.makedirs(self.backup_folder, exist_ok=True)
 
-
+    # def show_page(self, page_name):
+    #     """Display the requested page."""
+    #     for page in self.pages.values():
+    #         page.place_forget()
+    #     self.pages[page_name].place(x=0, y=0, width=1043, height=722)
     
     def show_page(self, page_name):
         # """Display the requested page."""
@@ -259,15 +338,32 @@ class VWARScannerGUI:
         Button(scanning_page, text="Back", command=lambda: self.show_page("home"), bg="gold", fg="white",
                font=("Inter", 12)).place(x=10, y=10, width=80, height=30)
 
-        Button(scanning_page, text="Select Target File", command=self.select_file).place(x=302.0, y=139.0, width=125.0, height=40.0)
-        Button(scanning_page, text="Select Target Folder", command=self.select_folder).place(x=302.0, y=195.0, width=125.0, height=40.0)
-        Button(scanning_page, text="Scan", command=self.start_scan_thread, bg="green", fg="white").place(x=485, y=150, width=73, height=25)
-        Button(scanning_page, text="Stop", command=self.stop_scanning, bg="red", fg="white").place(x=485, y=195, width=73, height=25)
+        Button(scanning_page, text="Select Target File", command=self.select_file).place(x=302.0, y=139.0, width=125.0, height=40.0)    
+        label_help = Label(scanning_page, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+        label_help.place(x=432, y=139)
+        Tooltip(label_help, "Choose a file to scan with YARA rules.")
         
+        
+        Button(scanning_page, text="Select Target Folder", command=self.select_folder).place(x=302.0, y=195.0, width=125.0, height=40.0)
+        label_help = Label(scanning_page, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+        label_help.place(x=432, y=195)
+        Tooltip(label_help, "Choose a folder to scan recursively")
+        
+        Button(scanning_page, text="Scan", command=self.start_scan_thread, bg="green", fg="white").place(x=485, y=150, width=73, height=25)
+        label_help = Label(scanning_page, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+        label_help.place(x=570, y=150)
+        Tooltip(label_help, "Start the scanning immediately.")
+        
+        Button(scanning_page, text="Stop", command=self.stop_scanning, bg="red", fg="white").place(x=485, y=195, width=73, height=25)
+        label_help = Label(scanning_page, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+        label_help.place(x=570, y=195)
+        Tooltip(label_help, "Stop the scanning immediately.")
         
         Button(scanning_page, text="Show Quarantined Files", command=lambda: self.show_page("auto_scanning"), bg="purple", fg="white",
        font=("Inter", 12)).place(x=700, y=195, width=200, height=40)
-
+        label_help = Label(scanning_page, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+        label_help.place(x=910, y=195)
+        Tooltip(label_help, "View files moved to quarantine after detection")
         
         self.progress_label = Label(scanning_page, text="PROGRESS : 0%", bg="#12e012", fg="#000000", font=("Inter", 12 * -1))
         self.progress_label.place(x=476.0, y=311.0)
@@ -532,6 +628,9 @@ class VWARScannerGUI:
         """Create the Auto Scanning Page for real-time file monitoring."""
         auto_scanning_page = Frame(self.root, bg="#009AA5")
         self.pages["auto_scanning"] = auto_scanning_page
+        
+        
+    
 
         Button(auto_scanning_page, text="Back", command=lambda: self.show_page("home"),
             bg="purple", fg="white", font=("Inter", 12)).place(x=10, y=10, width=80, height=30)
@@ -611,38 +710,19 @@ class VWARScannerGUI:
         #         self.log("[INFO] Auto scanning stopped.", "load")
         
         
-        def start_auto_scanning():
-            if not self.monitoring_active:
-                self.monitor = RealTimeMonitor(self, self.watch_path)
-                self.monitor.start()
-                self.monitoring_active = True
-                self.auto_scan_button_text.set("Stop Auto Scanning")
-                # Instead of starting a progress bar, start the blinking animation:
-                self.animate_auto_scan_status()
-                # Optionally, keep the home page animation if desired:
-                # self.home_scan_progress()
-                self.log("[INFO] Auto scanning started.", "load")
-
-        def stop_auto_scanning():
-            if self.monitoring_active and hasattr(self, 'monitor'):
-                self.monitor.stop()
-                self.monitoring_active = False
-                self.auto_scan_button_text.set("Start Auto Scanning")
-                # No need to call a stop() on the progress bar. The animation method will update the status label.
-                # self.home_scan_progress()  # Optionally stop the home page animation if needed.
-                self.log("[INFO] Auto scanning stopped.", "load")
 
 
-        def toggle_auto_scanning():
-            if self.monitoring_active:
-                stop_auto_scanning()
-            else:
-                start_auto_scanning()
 
-        Button(auto_scanning_page, textvariable=self.auto_scan_button_text,
-            command=toggle_auto_scanning, bg="#004953", fg="white",
-            font=("Inter", 12, "bold")).place(x=20, y=420, width=200, height=40)
+  
 
+        Button(auto_scanning_page, textvariable=self.auto_scan_button_text, command=self.toggle_auto_scanning, bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=20, y=420, width=200, height=40)
+        label_help = Label(auto_scanning_page, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+        label_help.place(x=220, y=420)
+        Tooltip(label_help, "Toggle automatic scanning of newly created files.")
+        
+        
+        
+        
         def delete_selected_quarantined_files():
             selected_indices = self.quarantine_listbox.curselection()
             if not selected_indices:
@@ -673,12 +753,16 @@ class VWARScannerGUI:
                             os.remove(meta_path)
 
                         self.quarantine_listbox.delete(index)
-                        self.log(f"[INFO] Deleted quarantined file and metadata: {matched_file}", "load")
+                        # self.log(f"[INFO] Deleted quarantined file and metadata: {matched_file}", "load")
+                        print(f"[INFO] Deleted quarantined file and metadata: {matched_file}", "load")
                     except Exception as e:
-                        self.log(f"[ERROR] Failed to delete {matched_file} or metadata: {e}", "load")
+                        # self.log(f"[ERROR] Failed to delete {matched_file} or metadata: {e}", "load")
+                        print(f"[ERROR] Failed to delete {matched_file} or metadata: {e}", "load")
 
-        Button(auto_scanning_page, text="Delete Selected", command=delete_selected_quarantined_files,
-            bg="#B22222", fg="white", font=("Inter", 12)).place(x=240, y=470, width=160, height=40)
+        Button(auto_scanning_page, text="Delete Selected", command=delete_selected_quarantined_files, bg="#B22222", fg="white", font=("Inter", 12)).place(x=250, y=470, width=180, height=40)
+        label_help = Label(auto_scanning_page, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+        label_help.place(x=430, y=470)
+        Tooltip(label_help, "Permanently delete the selected quarantined file.")
         
         def restore_quarantined_file_from_backup():
             selected_index = self.quarantine_listbox.curselection()
@@ -762,8 +846,10 @@ class VWARScannerGUI:
                 self.log(f"[ERROR] Restore failed: {e}", "load")
 
         
-        Button(auto_scanning_page, text="Restore file from Backup", command=restore_quarantined_file_from_backup,
-       bg="blue", fg="white", font=("Inter", 12)).place(x=240, y=420, width=160, height=40)
+        Button(auto_scanning_page, text="Restore file from Backup", command=restore_quarantined_file_from_backup, bg="blue", fg="white", font=("Inter", 12)).place(x=250, y=420, width=180, height=40)
+        label_help = Label(auto_scanning_page, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+        label_help.place(x=430, y=420)
+        Tooltip(label_help, "Restore quarantined file using matching backup.")
 
 
         # Mapping display index to metadata path
@@ -853,7 +939,7 @@ class VWARScannerGUI:
         self.quarantine_listbox.bind("<<ListboxSelect>>", on_quarantine_select)
 
         Button(auto_scanning_page, text="Refresh", command=refresh_quarantine_list,
-            bg="#006666", fg="white", font=("Inter", 12)).place(x=420, y=420, width=100, height=40)
+            bg="#006666", fg="white", font=("Inter", 12)).place(x=470, y=420, width=100, height=40)
 
         # Initial load
         self.update_quarantine_listbox()
@@ -863,6 +949,71 @@ class VWARScannerGUI:
     
         refresh_quarantine_list()
         
+    
+    
+    
+    
+    
+    
+
+    
+    # def start_auto_scanning(self):
+    #     if not self.monitoring_active:
+    #         self.monitor = RealTimeMonitor(self, self.watch_path)
+    #         self.monitor.start()
+    #         self.monitoring_active = True
+    #         self.auto_scan_button_text.set("Stop Auto Scanning")
+    #         # Instead of starting a progress bar, start the blinking animation:
+    #         self.animate_auto_scan_status()
+    #         # Optionally, keep the home page animation if desired:
+    #         # self.home_scan_progress()
+    #         self.log("[INFO] Auto scanning started.", "load")
+            
+    # def stop_auto_scanning(self):
+    #     if self.monitoring_active and hasattr(self, 'monitor'):
+    #         self.monitor.stop()  # Properly stop the observer
+    #         self.monitoring_active = False
+    #         self.auto_scan_button_text.set("Start Auto Scanning")
+    #         self.auto_scan_status_label.config(text="Status: Stopped", fg="red")
+    #         self.log("[INFO] Auto scanning stopped.", "load")   
+    
+    # def start_auto_scanning(self):
+    #     if not self.monitoring_active:
+    #         self.monitor = RealTimeMonitor(self, self.watch_path)
+    #         self.monitor.start()
+    #         self.monitoring_active = True
+    #         self.auto_scan_button_text.set("Stop Auto Scanning")
+    #         self.auto_scan_status_label.config(text="Status: Running ●", fg="green")
+    #         self.animate_auto_scan_status()
+    #         # self.log("[INFO] Auto scanning started.", "load")
+    #         print("[INFO] Auto scanning started.", "load")
+    
+    
+    def start_auto_scanning(self):
+        if not self.monitoring_active:
+            print("[DEBUG] Starting RealTimeMonitor...")  # ✅ Debug log
+            self.monitor = RealTimeMonitor(self, self.watch_path)
+            self.monitor.start()
+            self.monitoring_active = True
+            self.auto_scan_button_text.set("Stop Auto Scanning")
+            self.auto_scan_status_label.config(text="Status: Running ●", fg="green")
+            self.animate_auto_scan_status()
+                
+    def stop_auto_scanning(self):
+        if self.monitoring_active and hasattr(self, 'monitor'):
+            self.monitor.stop()
+            self.monitoring_active = False
+            self.auto_scan_button_text.set("Start Auto Scanning")
+            self.auto_scan_status_label.config(text="Status: Stopped", fg="red")
+            # self.log("[INFO] Auto scanning stopped.", "load")
+            print("[INFO] Auto scanning stopped.", "load")
+    
+    def toggle_auto_scanning(self):
+        if self.monitoring_active:
+            self.stop_auto_scanning()
+        else:
+            self.start_auto_scanning()
+    
     
     def animate_auto_scan_status(self):
         if self.monitoring_active:
@@ -899,8 +1050,8 @@ class VWARScannerGUI:
             backup_page = Frame(self.root, bg="#009AA5")
             self.pages["backup"] = backup_page
 
-            Button(backup_page, text="Back", command=lambda: self.show_page("home"),
-                bg="blue", fg="white", font=("Inter", 12)).place(x=10, y=10, width=80, height=30)
+            # Button(backup_page, text="Back", command=lambda: self.show_page("home"),
+            #     bg="blue", fg="white", font=("Inter", 12)).place(x=10, y=10, width=80, height=30)
 
             # Create internal frames
             self.menu_frame = Frame(backup_page, bg="#009AA5")
@@ -910,12 +1061,14 @@ class VWARScannerGUI:
             Button(self.menu_frame, text="Manual Backup", command=self.show_manual_backup,
                 bg="#004953", fg="white", font=("Inter", 14, "bold")).place(relx=0.3, rely=0.2, width=200, height=60)
 
-            Button(self.menu_frame, text="Restore Files", command=self.show_restore_backup,
+            Button(self.menu_frame, text="Restore Backup Files", command=self.show_restore_backup,
                 bg="#004953", fg="white", font=("Inter", 14, "bold")).place(relx=0.3, rely=0.4, width=200, height=60)
 
             Button(self.menu_frame, text="Auto Backup", command=self.show_auto_backup,
                 bg="#004953", fg="white", font=("Inter", 14, "bold")).place(relx=0.3, rely=0.6, width=200, height=60)
-
+            # Back button to return to Home
+            Button(self.menu_frame, text="Back", command=lambda: self.show_page("home"),
+                bg="blue", fg="white", font=("Inter", 12)).place(x=10, y=10, width=80, height=30)
             # === Manual Backup Frame contents ===
             # ===  backup Button ===
             self.manual_backup_frame = Frame(backup_page, bg="#009AA5")
@@ -957,15 +1110,23 @@ class VWARScannerGUI:
             )
             self.backup_destination_label.place(x=20, y=360, width=500, height=30)
             
-            Button(self.manual_backup_frame, text="Select Files", command=self.select_backup_files,
-                bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=110, width=180, height=40)
+            Button(self.manual_backup_frame, text="Select Files", command=self.select_backup_files, bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=110, width=180, height=40)
+            label_help = Label(self.manual_backup_frame, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+            label_help.place(x=790, y=110)
+            Tooltip(label_help, "Choose one or more files to back up manually.")
 
-            Button(self.manual_backup_frame, text="Select Destination", command=self.select_backup_destination,
-                bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=170, width=180, height=40)
 
-            self.start_backup_button = Button(self.manual_backup_frame, text="Start Backup", command=self.perform_backup,
-                                            state="disabled", bg="#006666", fg="white", font=("Inter", 12, "bold"))
+
+            Button(self.manual_backup_frame, text="Select Destination", command=self.select_backup_destination, bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=170, width=180, height=40)
+            label_help = Label(self.manual_backup_frame, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+            label_help.place(x=790, y=170)
+            Tooltip(label_help, "Choose or create the VWARbackup folder.")
+
+            self.start_backup_button = Button(self.manual_backup_frame, text="Start Backup", command=self.perform_backup, state="disabled", bg="#006666", fg="white", font=("Inter", 12, "bold"))
             self.start_backup_button.place(x=600, y=230, width=180, height=40)
+            label_help = Label(self.manual_backup_frame, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+            label_help.place(x=790, y=230)
+            Tooltip(label_help, "Back up selected files into today's dated folder.")
 
            
             # ===  backup Button ===
@@ -1003,8 +1164,13 @@ class VWARScannerGUI:
             )
             self.vwar_folder_label.place(x=20, y=70, width=500, height=30)
 
-            Button(self.restore_backup_frame, text="Select Folder", command=self.select_vwarbackup_folder,
-                bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=60, width=180, height=40)
+            # Button(self.restore_backup_frame, text="Select Folder", command=self.select_vwarbackup_folder,
+            #     bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=60, width=180, height=40)
+
+            Button(self.restore_backup_frame, text="Select Folder", command=self.select_vwarbackup_folder, bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=60, width=180, height=40)
+            label_help = Label(self.restore_backup_frame, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+            label_help.place(x=790, y=60)
+            Tooltip(label_help, "Select the main VWARbackup folder where your .backup files are stored.")
 
             # Step 2: Select Backup File
             Label(self.restore_backup_frame, text="Step 2: Select Backup File", font=("Inter", 14, "bold"),
@@ -1021,9 +1187,12 @@ class VWARScannerGUI:
             )
             self.restore_file_label.place(x=20, y=160, width=500, height=30)
 
-            Button(self.restore_backup_frame, text="Select Backup File", command=self.select_restore_file,
-                bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=160, width=180, height=40)
-
+            # Button(self.restore_backup_frame, text="Select Backup File", command=self.select_restore_file,
+            #     bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=160, width=180, height=40)
+            Button(self.restore_backup_frame, text="Select Backup File", command=self.select_restore_file, bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=160, width=180, height=40)
+            label_help = Label(self.restore_backup_frame, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+            label_help.place(x=790, y=160)
+            Tooltip(label_help, "Pick the specific .backup file you want to restore.")
             # Step 3: Select Restore Location
             Label(self.restore_backup_frame, text="Step 3: Select Restore Location", font=("Inter", 14, "bold"),
                 bg="#009AA5", fg="white").place(x=20, y=210)
@@ -1039,8 +1208,14 @@ class VWARScannerGUI:
             )
             self.restore_location_label.place(x=20, y=250, width=500, height=30)
 
-            Button(self.restore_backup_frame, text="Select Location", command=self.select_restore_location,
-                bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=250, width=180, height=40)
+            # Button(self.restore_backup_frame, text="Select Location", command=self.select_restore_location,
+            #     bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=250, width=180, height=40)
+
+
+            Button(self.restore_backup_frame, text="Select Location", command=self.select_restore_location, bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=250, width=180, height=40)
+            label_help = Label(self.restore_backup_frame, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+            label_help.place(x=790, y=250)
+            Tooltip(label_help, "Choose where the restored file should be saved.")
 
             # Step 4: Start Restore
             self.start_restore_button = Button(self.restore_backup_frame, text="Start Restore", command=self.perform_restore,
@@ -1060,9 +1235,14 @@ class VWARScannerGUI:
 
             # === Auto Backup Frame ===
 
+    # def hide_all_frames(self):
+    #     for frame in [self.menu_frame, self.manual_backup_frame, self.restore_backup_frame, self.auto_backup_frame]:
+    #         frame.place_forget()     
     def hide_all_frames(self):
         for frame in [self.menu_frame, self.manual_backup_frame, self.restore_backup_frame, self.auto_backup_frame]:
-            frame.place_forget()     
+            frame.place_forget()
+
+
            
     # === Frame switchers ===
 
@@ -1199,7 +1379,7 @@ class VWARScannerGUI:
 
   # === Helper restore methods ===
 
-  # === Helper Auto backup methods ===
+
     def build_auto_backup_page(self):
         self.auto_backup_frame.config(bg="#009AA5")
 
@@ -1214,15 +1394,32 @@ class VWARScannerGUI:
                                             bg="white", fg="black", anchor="w", relief="sunken")
         self.selected_folders_label.place(x=20, y=100, width=500, height=30)
 
-        Button(self.auto_backup_frame, text="Select Folders", command=self.select_auto_backup_folders,
-            bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=100, width=180, height=40)
+        # Button(self.auto_backup_frame, text="Select Folders", command=self.select_auto_backup_folders,
+        #     bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=100, width=180, height=40)
+
+
+        Button(self.auto_backup_frame, text="Select Folders", command=self.select_auto_backup_folders, bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=110, width=180, height=40)
+        label_help = Label(self.auto_backup_frame, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+        label_help.place(x=790, y=110)
+        Tooltip(label_help, "Choose folders that should be backed up automatically every day.")
 
         # Step 2: Select Time
         Label(self.auto_backup_frame, text="Step 2: Set Daily Backup Time (HH:MM) 24 hour clock", font=("Inter", 14, "bold"),
             bg="#009AA5", fg="white").place(x=20, y=160)
 
-        self.backup_time_entry = Entry(self.auto_backup_frame, textvariable=self.backup_time_var, font=("Inter", 12))
-        self.backup_time_entry.place(x=20, y=200, width=120, height=30)
+        # self.backup_time_entry = Entry(self.auto_backup_frame, textvariable=self.backup_time_var, font=("Inter", 12))
+        # self.backup_time_entry.place(x=20, y=200, width=120, height=30)
+        # Label(self.auto_backup_frame, text="Time (HH:MM):", bg="#333333", fg="white", font=("Arial", 12)).place(x=20, y=200)
+        # self.auto_backup_time_entry = Entry(self.auto_backup_frame, font=("Arial", 12))
+        # self.auto_backup_time_entry.place(x=20, y=200, width=120, height=30)
+        self.backup_time_var = StringVar()
+        self.auto_backup_time_entry = Entry(self.auto_backup_frame, textvariable=self.backup_time_var, font=("Arial", 12))
+        self.auto_backup_time_entry.place(x=20, y=200, width=120, height=30)
+
+        
+        label_help = Label(self.auto_backup_frame, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+        label_help.place(x=170, y=200)
+        Tooltip(label_help, "Set the time of day when automatic backup will run (24-hour format, e.g. 14:30).")
 
         # Step 3: Select Backup Destination
         Label(self.auto_backup_frame, text="Step 3: Select Backup Destination", font=("Inter", 14, "bold"),
@@ -1232,8 +1429,12 @@ class VWARScannerGUI:
                                             font=("Inter", 11), bg="white", fg="black", anchor="w", relief="sunken")
         self.auto_backup_dest_label.place(x=20, y=290, width=500, height=30)
 
-        Button(self.auto_backup_frame, text="Select Backup Destination", command=self.select_auto_backup_destination,
-            bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=290, width=180, height=40)
+        # Button(self.auto_backup_frame, text="Select Backup Destination", command=self.select_auto_backup_destination,
+        #     bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=290, width=230, height=40)
+        Button(self.auto_backup_frame, text="Select Destination", command=self.select_auto_backup_destination, bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=290, width=180, height=40)
+        label_help = Label(self.auto_backup_frame, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+        label_help.place(x=790, y=290)
+        Tooltip(label_help, "Choose the VWARbackup folder where automatic backups will be saved.")
 
         # Step 4: Control Buttons
         Label(self.auto_backup_frame, text="Step 4: Start or Stop Auto Backup", font=("Inter", 14, "bold"),
@@ -1256,25 +1457,19 @@ class VWARScannerGUI:
                                bg="#009AA5", fg="white")
         self.auto_status_label.place(x=420, y=400)
 
-        self.load_auto_backup_settings()
-
-
+        # self.load_auto_backup_settings()
 
 
     def select_auto_backup_folders(self):
-        folder = filedialog.askdirectory(mustexist=True, title="Select Folder to Backup")
-        if folder:
-            # Store the selected folder in the list
-            self.auto_backup_folders = [folder]
+        folders = filedialog.askdirectory(mustexist=True, title="Select Folder to Backup")
+        if folders:
+            self.auto_backup_folders = [folders]
             self.selected_folders_label.config(text="\n".join(self.auto_backup_folders))
-            self.log(f"[INFO] Auto backup source folder set to: {folder}", "load")
-
-
 
 
 
     def auto_backup_worker(self):
-        last_backup_date = None
+        day_index = 0  # 0 to 6
 
         while self.auto_backup_running:
             now = datetime.now()
@@ -1286,38 +1481,21 @@ class VWARScannerGUI:
                 self.log("[ERROR] Invalid time format.", "load")
                 break
 
-            # Extract the current date as a string
-            current_date_str = now.strftime("%d-%m-%Y")
+            while self.auto_backup_running:
+                now = datetime.now()
+                if now.hour == backup_hour and now.minute == backup_minute:
+                    # self.perform_rotating_backup(day_index)
+                    self.perform_rotating_backup()
+                    day_index = (day_index + 1) % 7
+                    time.sleep(60)  # Wait a minute before checking again
+                time.sleep(5)
 
-            # Initialize last_backup_date if not set (e.g., on first run)
-            if not last_backup_date:
-                last_backup_date = self.load_last_backup_date() or current_date_str
 
-            # Check if the date has changed
-            if current_date_str != last_backup_date:
-                # Create a new folder for the next day
-                folder_name = self.get_next_day_folder()
-                self.perform_rotating_backup(folder_name)
-                self.log(f"[INFO] Backup created: {folder_name}", "load")
-                
-                # Save the new date to file
-                self.save_last_backup_date(current_date_str)
-                last_backup_date = current_date_str
-                
-                # Wait to avoid duplicate backups
-                time.sleep(60)
-
-            # Wait a bit before checking again
-            time.sleep(5)
-
-            
-            
     def start_auto_backup(self):
         if not self.auto_backup_folders or not self.backup_time_var.get() or not hasattr(self, 'auto_backup_destination'):
             messagebox.showwarning("Missing Info", "Please select folders, destination, and set time.")
             return
         self.auto_backup_running = True
-        self.start_auto_backup_thread()
         self.start_button.config(state="disabled")
         self.stop_button.config(state="normal")
 
@@ -1326,13 +1504,6 @@ class VWARScannerGUI:
         self.log("[AUTO BACKUP] Started", "load")
         self.save_auto_backup_settings()
         self.animate_auto_backup_status()
-    # def start_auto_backup(self):
-    #     if not self.auto_backup_running:
-    #         self.auto_backup_running = True
-    #         self.save_auto_backup_settings()  # just in case
-    #         self.start_auto_backup_thread()
-    #         self.auto_backup_status_label.config(text="Status: Running", fg="green")
-    #         messagebox.showinfo("Auto Backup", "Auto Backup Started.")
 
 
     def stop_auto_backup(self):
@@ -1343,119 +1514,178 @@ class VWARScannerGUI:
         
         
 
+    # def perform_rotating_backup(self):
+    #     today = datetime.now().strftime("%d-%m-%Y")
+    #     state_file = os.path.join(self.auto_backup_destination, "AutoBackup", "auto_backup_state.json")
+    #     backup_root = os.path.join(self.auto_backup_destination, "AutoBackup")
+    #     os.makedirs(backup_root, exist_ok=True)
 
-    
-    def perform_rotating_backup(self, folder_name):
-        # Make sure the destination is set
-        if not self.auto_backup_destination:
-            self.log("[ERROR] No backup destination set.", "load")
-            return
+    #     # Load or initialize state
+    #     if os.path.exists(state_file):
+    #         with open(state_file, "r") as f:
+    #             state = json.load(f)
+    #         last_index = state.get("last_index", 0)
+    #         last_date = state.get("last_date", "")
+    #     else:
+    #         state = {}
+    #         last_index = 0
+    #         last_date = ""
 
-        # Create the day folder
-        backup_root = self.auto_backup_destination  # Corrected
-        day_folder = os.path.join(backup_root, folder_name)
-        os.makedirs(day_folder, exist_ok=True)
+    #     # If today is already backed up, do nothing
+    #     today_already_done = False
+    #     for folder in os.listdir(backup_root):
+    #         if folder.endswith(today):
+    #             self.log(f"[AUTO BACKUP] Skipped - Already backed up today in {folder}", "load")
+    #             today_already_done = True
+    #             break
+
+    #     if today_already_done:
+    #         return
+
+    #     # Determine next day index (rotate 1-7)
+    #     next_index = (last_index % 7) + 1
+    #     folder_name = f"day{next_index}_{today}"
+    #     day_folder = os.path.join(backup_root, folder_name)
+    #     os.makedirs(day_folder, exist_ok=True)
+
+    #     try:
+    #         for folder in self.auto_backup_folders:
+    #             for root_dir, _, files in os.walk(folder):
+    #                 for file in files:
+    #                     src_file = os.path.join(root_dir, file)
+    #                     rel_path = os.path.relpath(src_file, folder)
+    #                     dest_file = os.path.join(day_folder, rel_path + ".backup")
+
+    #                     os.makedirs(os.path.dirname(dest_file), exist_ok=True)
+    #                     shutil.copy2(src_file, dest_file)
+
+    #         # Save new state
+    #         state["last_index"] = next_index
+    #         state["last_date"] = today
+    #         with open(state_file, "w") as f:
+    #             json.dump(state, f)
+
+    #         self.log(f"[AUTO BACKUP] Completed in {folder_name}", "load")
+    #     except Exception as e:
+    #         self.log(f"[ERROR] Auto Backup failed: {e}", "load")
+
+
+
+    def perform_rotating_backup(self):
+        from datetime import datetime
+
+        today = datetime.now().strftime("%d-%m-%Y")
+        current_time = datetime.now().time()
+
+        backup_root = os.path.join(self.auto_backup_destination, "AutoBackup")
+        os.makedirs(backup_root, exist_ok=True)
+
+        # Regex pattern to match folders like: day3_12-05-25
+        pattern = re.compile(r"day(\d)_(\d{2}-\d{2}-\d{2})")
+
+        last_day = 0
+        last_date_str = ""
+        last_date_obj = None
+        latest_folder_path = ""
+
+        for folder in os.listdir(backup_root):
+            match = pattern.match(folder)
+            if match:
+                day_num = int(match.group(1))
+                folder_date = match.group(2)
+
+                # Convert date format from DD-MM-YY to datetime object
+                try:
+                    folder_date_obj = datetime.strptime(folder_date, "%d-%m-%y")
+                except:
+                    continue
+
+                if not last_date_obj or folder_date_obj > last_date_obj:
+                    last_day = day_num
+                    last_date_str = folder_date
+                    last_date_obj = folder_date_obj
+                    latest_folder_path = os.path.join(backup_root, folder)
+
+        # Decide whether to create a new folder or reuse today's
+        today_obj = datetime.strptime(today, "%d-%m-%Y")
+        today_short = today_obj.strftime("%d-%m-%y")  # To compare with folder format
+
+        target_folder = ""
+
+        if last_date_str == today_short:
+            # Reuse today's folder if current time > previous time
+            target_folder = latest_folder_path
+            self.log(f"[AUTO BACKUP] Appending to existing {os.path.basename(target_folder)}", "load")
+        else:
+            # Rotate to next day number (1–7)
+            next_day = 1 if last_day >= 7 else last_day + 1
+            folder_name = f"day{next_day}_{today_short}"
+            target_folder = os.path.join(backup_root, folder_name)
+            os.makedirs(target_folder, exist_ok=True)
+            self.log(f"[AUTO BACKUP] Created new folder {folder_name}", "load")
 
         try:
-            # Make sure there are folders to back up
-            if not self.auto_backup_folders:
-                self.log("[ERROR] No folders selected for auto backup.", "load")
-                return
-
-            # Backup all selected folders
             for folder in self.auto_backup_folders:
                 for root_dir, _, files in os.walk(folder):
                     for file in files:
                         src_file = os.path.join(root_dir, file)
                         rel_path = os.path.relpath(src_file, folder)
-                        dest_file = os.path.join(day_folder, rel_path + ".backup")
+                        dest_file = os.path.join(target_folder, rel_path + ".backup")
 
-                        # Create the directory structure
                         os.makedirs(os.path.dirname(dest_file), exist_ok=True)
-
-                        # Copy the file
                         shutil.copy2(src_file, dest_file)
-                        self.log(f"[BACKUP] {src_file} -> {dest_file}", "load")
 
-            self.log(f"[INFO] Backup completed for {folder_name}", "load")
+            self.log(f"[AUTO BACKUP] Backup completed in {target_folder}", "load")
         except Exception as e:
             self.log(f"[ERROR] Auto Backup failed: {e}", "load")
 
- 
-    
+
+
     def select_auto_backup_destination(self):
         destination = filedialog.askdirectory(title="Select Destination for Auto Backup")
         if not destination:
-            self.log("[ERROR] No destination selected.", "load")
             return
+        if os.path.basename(destination) == "VWARbackup":
+            self.auto_backup_destination = destination
+        else:
+            self.auto_backup_destination = os.path.join(destination, "VWARbackup")
+            os.makedirs(self.auto_backup_destination, exist_ok=True)
         
-        # Set the VWARbackup destination
-        self.auto_backup_destination = os.path.join(destination, "VWARbackup")
-        os.makedirs(self.auto_backup_destination, exist_ok=True)
-        
-        # Update the UI label
         self.auto_backup_dest_label.config(text=self.auto_backup_destination)
-        self.log(f"[INFO] Auto backup destination set to: {self.auto_backup_destination}", "load")
 
 
 
+    # def save_auto_backup_settings(self):
+    #     config = {
+    #         "folders": self.auto_backup_folders,
+    #         "time": self.backup_time_var.get(),
+    #         "destination": self.auto_backup_destination
+    #     }
+    #     with open("auto_backup_config.json", "w") as f:
+    #         json.dump(config, f)
 
 
-   
-    
-    
-    def save_auto_backup_settings(self):
-        config = {
-            "folders": self.auto_backup_folders,
-            "time": self.backup_time_var.get(),
-            "destination": self.auto_backup_destination,
-            "auto_backup_running": self.auto_backup_running  # Save the running state
-        }
-        with open("auto_backup_config.json", "w") as f:
-            json.dump(config, f)
+    # def load_auto_backup_settings(self):
+    #     try:
+    #         with open("auto_backup_config.json", "r") as f:
+    #             config = json.load(f)
+    #             self.auto_backup_folders = config.get("folders", [])
+    #             self.backup_time_var.set(config.get("time", ""))
+    #             self.auto_backup_destination = config.get("destination", "")
 
+    #             # Update UI labels
+    #             if self.auto_backup_folders:
+    #                 self.selected_folders_label.config(text="\n".join(self.auto_backup_folders))
+    #             if self.auto_backup_destination:
+    #                 self.auto_backup_dest_label.config(text=self.auto_backup_destination)
 
+    #             # Automatically start if settings are valid
+    #             if self.auto_backup_folders and self.backup_time_var.get() and self.auto_backup_destination:
+    #                 self.start_auto_backup()
 
-    def save_last_backup_date(self, date_str):
-        with open("last_backup_date.txt", "w") as f:
-            f.write(date_str)
+    #     except Exception as e:
+    #         self.log(f"[AUTO BACKUP] Failed to load settings: {e}", "load")
 
-    def load_last_backup_date(self):
-        try:
-            with open("last_backup_date.txt", "r") as f:
-                return f.read().strip()
-        except FileNotFoundError:
-            return None
-
-
-
-
-
-
-
-    def load_auto_backup_settings(self):
-        try:
-            with open("auto_backup_config.json", "r") as f:
-                config = json.load(f)
-                self.auto_backup_folders = config.get("folders", [])
-                self.backup_time_var.set(config.get("time", ""))
-                self.auto_backup_destination = config.get("destination", "")
-                self.auto_backup_running = config.get("auto_backup_running", False)
-
-                # Update UI labels
-                if self.auto_backup_folders:
-                    self.selected_folders_label.config(text="\n".join(self.auto_backup_folders))
-                if self.auto_backup_destination:
-                    self.auto_backup_dest_label.config(text=self.auto_backup_destination)
-
-                # Automatically start if it was running before the restart
-                if self.auto_backup_running:
-                    self.start_auto_backup()
-
-                self.log("[INFO] Auto backup settings loaded successfully.", "load")
-
-        except Exception as e:
-            self.log(f"[ERROR] Failed to load auto backup settings: {e}", "load")
 
 
 
@@ -1472,70 +1702,21 @@ class VWARScannerGUI:
 
 
 
-    # def get_next_day_folder(self):
-    #     backup_root = os.path.join(self.auto_backup_destination, "AutoBackup")
-        
-    #     os.makedirs(backup_root, exist_ok=True)
-        
-    #     # Find the highest existing day number
-    #     existing_folders = os.listdir(backup_root)
-    #     max_day = 0
-    #     for folder in existing_folders:
-    #         if folder.startswith("day") and "_" in folder:
-    #             try:
-    #                 day_part = folder.split("_")[0].replace("day", "")
-    #                 max_day = max(max_day, int(day_part))
-    #             except ValueError:
-    #                 pass
-
-    #     # Create the next day folder name
-    #     next_day_index = max_day + 1
-    #     today_str = datetime.now().strftime("%d-%m-%Y")
-    #     return f"day{next_day_index}_{today_str}"
 
 
-    def get_next_day_folder(self):
-        backup_root = os.path.join(self.auto_backup_destination, "AutoBackup")
-        os.makedirs(backup_root, exist_ok=True)
-
-        # Find all existing day folders
-        existing_days = []
-        for folder in os.listdir(backup_root):
-            if folder.startswith("day") and "_" in folder:
-                try:
-                    day_num = int(folder.split("_")[0].replace("day", ""))
-                    existing_days.append(day_num)
-                except ValueError:
-                    pass
-
-        next_day = (max(existing_days, default=0) % 7) + 1  # Rotate 1-7
-        today_str = datetime.now().strftime("%d-%m-%Y")
-        return f"day{next_day}_{today_str}"
-
-    def perform_rotating_backup(self, folder_name):
-        print(f"[DEBUG] Destination: {self.auto_backup_destination}", "load")
-        print(f"[DEBUG] Folder Name: {folder_name}", "load")
 
 
-    def start_auto_backup_thread(self):
-        if not self.auto_backup_thread or not self.auto_backup_thread.is_alive():
-            self.auto_backup_thread = threading.Thread(target=self.auto_backup_worker, daemon=True)
-            self.auto_backup_thread.start()
+
 
 
 class FileMonitorHandler(FileSystemEventHandler):
     def __init__(self, scanner):
         self.scanner = scanner  # Reference to the VWAR scanner instance
-
+    
     def on_created(self, event):
-        """Trigger when a new file is created in the monitored directory."""
-        if not event.is_directory:  # Ignore directories
+        if not event.is_directory:
             file_path = event.src_path
-
-            # Ask user if they want to scan the new file
             self.prompt_scan(file_path)
-
-
 
     def prompt_scan(self, file_path):
         def scan_decision():
@@ -1549,17 +1730,23 @@ class RealTimeMonitor:
         self.watch_path = watch_path  # Directory to monitor
         self.observer = Observer()
 
+    # def start(self):
+    #     """Start monitoring for new files."""
+    #     event_handler = FileMonitorHandler(self.scanner)
+    #     self.observer.schedule(event_handler, self.watch_path, recursive=True)
+    #     monitoring_thread = threading.Thread(target=self.observer.start, daemon=True)
+    #     monitoring_thread.start()
+    
     def start(self):
-        """Start monitoring for new files."""
         event_handler = FileMonitorHandler(self.scanner)
         self.observer.schedule(event_handler, self.watch_path, recursive=True)
-        monitoring_thread = threading.Thread(target=self.observer.start, daemon=True)
-        monitoring_thread.start()
+        self.observer.start()  # Start directly — NOT in a new thread
 
     def stop(self):
         """Stop monitoring for new files."""
         self.observer.stop()
         self.observer.join()
+
 
 
 if __name__ == "__main__":
