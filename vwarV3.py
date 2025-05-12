@@ -18,6 +18,32 @@ import threading
 import json
 from plyer import notification
 
+class Tooltip:
+    def __init__(self, widget, text):
+        self.widget = widget
+        self.text = text
+        self.tooltip = None
+        self.widget.bind("<Enter>", self.show)
+        self.widget.bind("<Leave>", self.hide)
+
+    def show(self, event=None):
+        if self.tooltip or not self.text:
+            return
+        x = self.widget.winfo_rootx() + 20
+        y = self.widget.winfo_rooty() + 20
+        self.tooltip = tw = Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.geometry(f"+{x}+{y}")
+        label = Label(tw, text=self.text, justify='left',
+                      background="#ffffe0", relief='solid', borderwidth=1,
+                      font=("tahoma", "8", "normal"))
+        label.pack(ipadx=1)
+
+    def hide(self, event=None):
+        if self.tooltip:
+            self.tooltip.destroy()
+            self.tooltip = None
+
 
 
 def decode_base64(encoded_string):
@@ -75,22 +101,6 @@ class VWARScannerGUI:
         Button(self.root, textvariable=self.auto_scan_button_text,
             command=self.toggle_auto_scanning, bg="#004953", fg="white",
             font=("Inter", 12, "bold")).place(x=20, y=420, width=200, height=40)
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
         
         
         
@@ -328,15 +338,32 @@ class VWARScannerGUI:
         Button(scanning_page, text="Back", command=lambda: self.show_page("home"), bg="gold", fg="white",
                font=("Inter", 12)).place(x=10, y=10, width=80, height=30)
 
-        Button(scanning_page, text="Select Target File", command=self.select_file).place(x=302.0, y=139.0, width=125.0, height=40.0)
-        Button(scanning_page, text="Select Target Folder", command=self.select_folder).place(x=302.0, y=195.0, width=125.0, height=40.0)
-        Button(scanning_page, text="Scan", command=self.start_scan_thread, bg="green", fg="white").place(x=485, y=150, width=73, height=25)
-        Button(scanning_page, text="Stop", command=self.stop_scanning, bg="red", fg="white").place(x=485, y=195, width=73, height=25)
+        Button(scanning_page, text="Select Target File", command=self.select_file).place(x=302.0, y=139.0, width=125.0, height=40.0)    
+        label_help = Label(scanning_page, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+        label_help.place(x=432, y=139)
+        Tooltip(label_help, "Choose a file to scan with YARA rules.")
         
+        
+        Button(scanning_page, text="Select Target Folder", command=self.select_folder).place(x=302.0, y=195.0, width=125.0, height=40.0)
+        label_help = Label(scanning_page, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+        label_help.place(x=432, y=195)
+        Tooltip(label_help, "Choose a folder to scan recursively")
+        
+        Button(scanning_page, text="Scan", command=self.start_scan_thread, bg="green", fg="white").place(x=485, y=150, width=73, height=25)
+        label_help = Label(scanning_page, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+        label_help.place(x=570, y=150)
+        Tooltip(label_help, "Start the scanning immediately.")
+        
+        Button(scanning_page, text="Stop", command=self.stop_scanning, bg="red", fg="white").place(x=485, y=195, width=73, height=25)
+        label_help = Label(scanning_page, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+        label_help.place(x=570, y=195)
+        Tooltip(label_help, "Stop the scanning immediately.")
         
         Button(scanning_page, text="Show Quarantined Files", command=lambda: self.show_page("auto_scanning"), bg="purple", fg="white",
        font=("Inter", 12)).place(x=700, y=195, width=200, height=40)
-
+        label_help = Label(scanning_page, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+        label_help.place(x=910, y=195)
+        Tooltip(label_help, "View files moved to quarantine after detection")
         
         self.progress_label = Label(scanning_page, text="PROGRESS : 0%", bg="#12e012", fg="#000000", font=("Inter", 12 * -1))
         self.progress_label.place(x=476.0, y=311.0)
@@ -688,10 +715,14 @@ class VWARScannerGUI:
 
   
 
-        Button(auto_scanning_page, textvariable=self.auto_scan_button_text,
-            command=self.toggle_auto_scanning, bg="#004953", fg="white",
-            font=("Inter", 12, "bold")).place(x=20, y=420, width=200, height=40)
-
+        Button(auto_scanning_page, textvariable=self.auto_scan_button_text, command=self.toggle_auto_scanning, bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=20, y=420, width=200, height=40)
+        label_help = Label(auto_scanning_page, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+        label_help.place(x=220, y=420)
+        Tooltip(label_help, "Toggle automatic scanning of newly created files.")
+        
+        
+        
+        
         def delete_selected_quarantined_files():
             selected_indices = self.quarantine_listbox.curselection()
             if not selected_indices:
@@ -728,8 +759,10 @@ class VWARScannerGUI:
                         # self.log(f"[ERROR] Failed to delete {matched_file} or metadata: {e}", "load")
                         print(f"[ERROR] Failed to delete {matched_file} or metadata: {e}", "load")
 
-        Button(auto_scanning_page, text="Delete Selected", command=delete_selected_quarantined_files,
-            bg="#B22222", fg="white", font=("Inter", 12)).place(x=240, y=470, width=160, height=40)
+        Button(auto_scanning_page, text="Delete Selected", command=delete_selected_quarantined_files, bg="#B22222", fg="white", font=("Inter", 12)).place(x=250, y=470, width=180, height=40)
+        label_help = Label(auto_scanning_page, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+        label_help.place(x=430, y=470)
+        Tooltip(label_help, "Permanently delete the selected quarantined file.")
         
         def restore_quarantined_file_from_backup():
             selected_index = self.quarantine_listbox.curselection()
@@ -813,8 +846,10 @@ class VWARScannerGUI:
                 self.log(f"[ERROR] Restore failed: {e}", "load")
 
         
-        Button(auto_scanning_page, text="Restore file from Backup", command=restore_quarantined_file_from_backup,
-       bg="blue", fg="white", font=("Inter", 12)).place(x=240, y=420, width=160, height=40)
+        Button(auto_scanning_page, text="Restore file from Backup", command=restore_quarantined_file_from_backup, bg="blue", fg="white", font=("Inter", 12)).place(x=250, y=420, width=180, height=40)
+        label_help = Label(auto_scanning_page, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+        label_help.place(x=430, y=420)
+        Tooltip(label_help, "Restore quarantined file using matching backup.")
 
 
         # Mapping display index to metadata path
@@ -904,7 +939,7 @@ class VWARScannerGUI:
         self.quarantine_listbox.bind("<<ListboxSelect>>", on_quarantine_select)
 
         Button(auto_scanning_page, text="Refresh", command=refresh_quarantine_list,
-            bg="#006666", fg="white", font=("Inter", 12)).place(x=420, y=420, width=100, height=40)
+            bg="#006666", fg="white", font=("Inter", 12)).place(x=470, y=420, width=100, height=40)
 
         # Initial load
         self.update_quarantine_listbox()
@@ -1026,7 +1061,7 @@ class VWARScannerGUI:
             Button(self.menu_frame, text="Manual Backup", command=self.show_manual_backup,
                 bg="#004953", fg="white", font=("Inter", 14, "bold")).place(relx=0.3, rely=0.2, width=200, height=60)
 
-            Button(self.menu_frame, text="Restore Files", command=self.show_restore_backup,
+            Button(self.menu_frame, text="Restore Backup Files", command=self.show_restore_backup,
                 bg="#004953", fg="white", font=("Inter", 14, "bold")).place(relx=0.3, rely=0.4, width=200, height=60)
 
             Button(self.menu_frame, text="Auto Backup", command=self.show_auto_backup,
@@ -1073,15 +1108,23 @@ class VWARScannerGUI:
             )
             self.backup_destination_label.place(x=20, y=360, width=500, height=30)
             
-            Button(self.manual_backup_frame, text="Select Files", command=self.select_backup_files,
-                bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=110, width=180, height=40)
+            Button(self.manual_backup_frame, text="Select Files", command=self.select_backup_files, bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=110, width=180, height=40)
+            label_help = Label(self.manual_backup_frame, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+            label_help.place(x=790, y=110)
+            Tooltip(label_help, "Choose one or more files to back up manually.")
 
-            Button(self.manual_backup_frame, text="Select Destination", command=self.select_backup_destination,
-                bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=170, width=180, height=40)
 
-            self.start_backup_button = Button(self.manual_backup_frame, text="Start Backup", command=self.perform_backup,
-                                            state="disabled", bg="#006666", fg="white", font=("Inter", 12, "bold"))
+
+            Button(self.manual_backup_frame, text="Select Destination", command=self.select_backup_destination, bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=170, width=180, height=40)
+            label_help = Label(self.manual_backup_frame, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+            label_help.place(x=790, y=170)
+            Tooltip(label_help, "Choose or create the VWARbackup folder.")
+
+            self.start_backup_button = Button(self.manual_backup_frame, text="Start Backup", command=self.perform_backup, state="disabled", bg="#006666", fg="white", font=("Inter", 12, "bold"))
             self.start_backup_button.place(x=600, y=230, width=180, height=40)
+            label_help = Label(self.manual_backup_frame, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+            label_help.place(x=790, y=230)
+            Tooltip(label_help, "Back up selected files into today's dated folder.")
 
            
             # ===  backup Button ===
@@ -1119,8 +1162,13 @@ class VWARScannerGUI:
             )
             self.vwar_folder_label.place(x=20, y=70, width=500, height=30)
 
-            Button(self.restore_backup_frame, text="Select Folder", command=self.select_vwarbackup_folder,
-                bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=60, width=180, height=40)
+            # Button(self.restore_backup_frame, text="Select Folder", command=self.select_vwarbackup_folder,
+            #     bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=60, width=180, height=40)
+
+            Button(self.restore_backup_frame, text="Select Folder", command=self.select_vwarbackup_folder, bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=60, width=180, height=40)
+            label_help = Label(self.restore_backup_frame, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+            label_help.place(x=790, y=60)
+            Tooltip(label_help, "Select the main VWARbackup folder where your .backup files are stored.")
 
             # Step 2: Select Backup File
             Label(self.restore_backup_frame, text="Step 2: Select Backup File", font=("Inter", 14, "bold"),
@@ -1137,9 +1185,12 @@ class VWARScannerGUI:
             )
             self.restore_file_label.place(x=20, y=160, width=500, height=30)
 
-            Button(self.restore_backup_frame, text="Select Backup File", command=self.select_restore_file,
-                bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=160, width=180, height=40)
-
+            # Button(self.restore_backup_frame, text="Select Backup File", command=self.select_restore_file,
+            #     bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=160, width=180, height=40)
+            Button(self.restore_backup_frame, text="Select Backup File", command=self.select_restore_file, bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=160, width=180, height=40)
+            label_help = Label(self.restore_backup_frame, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+            label_help.place(x=790, y=160)
+            Tooltip(label_help, "Pick the specific .backup file you want to restore.")
             # Step 3: Select Restore Location
             Label(self.restore_backup_frame, text="Step 3: Select Restore Location", font=("Inter", 14, "bold"),
                 bg="#009AA5", fg="white").place(x=20, y=210)
@@ -1155,8 +1206,14 @@ class VWARScannerGUI:
             )
             self.restore_location_label.place(x=20, y=250, width=500, height=30)
 
-            Button(self.restore_backup_frame, text="Select Location", command=self.select_restore_location,
-                bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=250, width=180, height=40)
+            # Button(self.restore_backup_frame, text="Select Location", command=self.select_restore_location,
+            #     bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=250, width=180, height=40)
+
+
+            Button(self.restore_backup_frame, text="Select Location", command=self.select_restore_location, bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=250, width=180, height=40)
+            label_help = Label(self.restore_backup_frame, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+            label_help.place(x=790, y=250)
+            Tooltip(label_help, "Choose where the restored file should be saved.")
 
             # Step 4: Start Restore
             self.start_restore_button = Button(self.restore_backup_frame, text="Start Restore", command=self.perform_restore,
@@ -1330,15 +1387,27 @@ class VWARScannerGUI:
                                             bg="white", fg="black", anchor="w", relief="sunken")
         self.selected_folders_label.place(x=20, y=100, width=500, height=30)
 
-        Button(self.auto_backup_frame, text="Select Folders", command=self.select_auto_backup_folders,
-            bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=100, width=180, height=40)
+        # Button(self.auto_backup_frame, text="Select Folders", command=self.select_auto_backup_folders,
+        #     bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=100, width=180, height=40)
+
+
+        Button(self.auto_backup_frame, text="Select Folders", command=self.select_auto_backup_folders, bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=110, width=180, height=40)
+        label_help = Label(self.auto_backup_frame, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+        label_help.place(x=790, y=110)
+        Tooltip(label_help, "Choose folders that should be backed up automatically every day.")
 
         # Step 2: Select Time
         Label(self.auto_backup_frame, text="Step 2: Set Daily Backup Time (HH:MM) 24 hour clock", font=("Inter", 14, "bold"),
             bg="#009AA5", fg="white").place(x=20, y=160)
 
-        self.backup_time_entry = Entry(self.auto_backup_frame, textvariable=self.backup_time_var, font=("Inter", 12))
-        self.backup_time_entry.place(x=20, y=200, width=120, height=30)
+        # self.backup_time_entry = Entry(self.auto_backup_frame, textvariable=self.backup_time_var, font=("Inter", 12))
+        # self.backup_time_entry.place(x=20, y=200, width=120, height=30)
+        # Label(self.auto_backup_frame, text="Time (HH:MM):", bg="#333333", fg="white", font=("Arial", 12)).place(x=20, y=200)
+        self.auto_backup_time_entry = Entry(self.auto_backup_frame, font=("Arial", 12))
+        self.auto_backup_time_entry.place(x=20, y=200, width=120, height=30)
+        label_help = Label(self.auto_backup_frame, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+        label_help.place(x=170, y=200)
+        Tooltip(label_help, "Set the time of day when automatic backup will run (24-hour format, e.g. 14:30).")
 
         # Step 3: Select Backup Destination
         Label(self.auto_backup_frame, text="Step 3: Select Backup Destination", font=("Inter", 14, "bold"),
@@ -1348,8 +1417,12 @@ class VWARScannerGUI:
                                             font=("Inter", 11), bg="white", fg="black", anchor="w", relief="sunken")
         self.auto_backup_dest_label.place(x=20, y=290, width=500, height=30)
 
-        Button(self.auto_backup_frame, text="Select Backup Destination", command=self.select_auto_backup_destination,
-            bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=290, width=180, height=40)
+        # Button(self.auto_backup_frame, text="Select Backup Destination", command=self.select_auto_backup_destination,
+        #     bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=290, width=230, height=40)
+        Button(self.auto_backup_frame, text="Select Destination", command=self.select_auto_backup_destination, bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=290, width=180, height=40)
+        label_help = Label(self.auto_backup_frame, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
+        label_help.place(x=790, y=290)
+        Tooltip(label_help, "Choose the VWARbackup folder where automatic backups will be saved.")
 
         # Step 4: Control Buttons
         Label(self.auto_backup_frame, text="Step 4: Start or Stop Auto Backup", font=("Inter", 14, "bold"),
