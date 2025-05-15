@@ -1502,7 +1502,7 @@ class VWARScannerGUI:
         self.auto_backup_thread = threading.Thread(target=self.auto_backup_worker, daemon=True)
         self.auto_backup_thread.start()
         self.log("[AUTO BACKUP] Started", "load")
-        # self.save_auto_backup_settings()
+        self.save_auto_backup_settings()
         
         self.animate_auto_backup_status()
 
@@ -1512,6 +1512,7 @@ class VWARScannerGUI:
         self.start_button.config(state="normal")
         self.stop_button.config(state="disabled")
         self.log("[AUTO BACKUP] Stopped", "load")
+        self.save_auto_backup_settings()
         
         
 
@@ -1700,48 +1701,106 @@ class VWARScannerGUI:
 
 
 
+    # def perform_rotating_backup(self):
+    #     from datetime import datetime
+
+    #     today_full = datetime.now().strftime("%d-%m-%Y")  # → 12-05-2025
+    #     current_time = datetime.now().time()
+
+    #     backup_root = os.path.join(self.auto_backup_destination, "AutoBackup")
+    #     os.makedirs(backup_root, exist_ok=True)
+
+    #     # Match folders like day3_12-05-2025
+    #     pattern = re.compile(r"day(\d)_(\d{2}-\d{2}-\d{4})")
+    #     last_day = 0
+    #     last_date_obj = None
+    #     latest_folder_path = ""
+
+    #     for folder in os.listdir(backup_root):
+    #         match = pattern.match(folder)
+    #         if match:
+    #             day_num = int(match.group(1))
+    #             folder_date_str = match.group(2)
+
+    #             try:
+    #                 folder_date_obj = datetime.strptime(folder_date_str, "%d-%m-%Y")
+    #             except:
+    #                 continue
+
+    #             if not last_date_obj or folder_date_obj > last_date_obj:
+    #                 last_day = day_num
+    #                 last_date_obj = folder_date_obj
+    #                 latest_folder_path = os.path.join(backup_root, folder)
+
+    #     # Reuse or create folder
+    #     target_folder = ""
+    #     if last_date_obj and last_date_obj.date() == datetime.now().date():
+    #         target_folder = latest_folder_path
+    #         self.log(f"[AUTO BACKUP] Appending to existing {os.path.basename(target_folder)}", "load")
+    #     else:
+    #         next_day = 1 if last_day >= 7 else last_day + 1
+    #         folder_name = f"day{next_day}_{today_full}"
+    #         target_folder = os.path.join(backup_root, folder_name)
+    #         os.makedirs(target_folder, exist_ok=True)
+    #         self.log(f"[AUTO BACKUP] Created new folder {folder_name}", "load")
+
+    #     try:
+    #         for folder in self.auto_backup_folders:
+    #             for root_dir, _, files in os.walk(folder):
+    #                 for file in files:
+    #                     src_file = os.path.join(root_dir, file)
+    #                     rel_path = os.path.relpath(src_file, folder)
+    #                     dest_file = os.path.join(target_folder, rel_path + ".backup")
+
+    #                     os.makedirs(os.path.dirname(dest_file), exist_ok=True)
+    #                     shutil.copy2(src_file, dest_file)
+
+    #         self.log(f"[AUTO BACKUP] Backup completed in {target_folder}", "load")
+    #     except Exception as e:
+    #         self.log(f"[ERROR] Auto Backup failed: {e}", "load")
+
+
+
     def perform_rotating_backup(self):
-        from datetime import datetime
-
-        today_full = datetime.now().strftime("%d-%m-%Y")  # → 12-05-2025
-        current_time = datetime.now().time()
-
+        today = datetime.now().strftime("%d-%m-%Y")
+        today_obj = datetime.strptime(today, "%d-%m-%Y")
         backup_root = os.path.join(self.auto_backup_destination, "AutoBackup")
         os.makedirs(backup_root, exist_ok=True)
 
-        # Match folders like day3_12-05-2025
         pattern = re.compile(r"day(\d)_(\d{2}-\d{2}-\d{4})")
-        last_day = 0
-        last_date_obj = None
-        latest_folder_path = ""
+        existing_folders = []
 
         for folder in os.listdir(backup_root):
             match = pattern.match(folder)
             if match:
                 day_num = int(match.group(1))
-                folder_date_str = match.group(2)
-
+                folder_date = match.group(2)
                 try:
-                    folder_date_obj = datetime.strptime(folder_date_str, "%d-%m-%Y")
+                    folder_date_obj = datetime.strptime(folder_date, "%d-%m-%Y")
+                    existing_folders.append((day_num, folder_date_obj, folder))
                 except:
                     continue
 
-                if not last_date_obj or folder_date_obj > last_date_obj:
-                    last_day = day_num
-                    last_date_obj = folder_date_obj
-                    latest_folder_path = os.path.join(backup_root, folder)
+        # Check if today's backup already exists
+        for _, date_obj, folder in existing_folders:
+            if date_obj.date() == today_obj.date():
+                self.log(f"[AUTO BACKUP] Skipped - Already backed up today in {folder}", "load")
+                return
 
-        # Reuse or create folder
-        target_folder = ""
-        if last_date_obj and last_date_obj.date() == datetime.now().date():
-            target_folder = latest_folder_path
-            self.log(f"[AUTO BACKUP] Appending to existing {os.path.basename(target_folder)}", "load")
+        # Sort by date to find the oldest
+        existing_folders.sort(key=lambda x: x[1])
+
+        if len(existing_folders) < 7:
+            next_day = len(existing_folders) + 1
         else:
-            next_day = 1 if last_day >= 7 else last_day + 1
-            folder_name = f"day{next_day}_{today_full}"
-            target_folder = os.path.join(backup_root, folder_name)
-            os.makedirs(target_folder, exist_ok=True)
-            self.log(f"[AUTO BACKUP] Created new folder {folder_name}", "load")
+            # Rotate: reuse the oldest folder slot (overwrite)
+            next_day = existing_folders[0][0]
+            # Delete the old folder
+            shutil.rmtree(os.path.join(backup_root, existing_folders[0][2]), ignore_errors=True)
+
+        folder_name = f"day{next_day}_{today}"
+        target_folder = os.path.join(backup_root, folder_name)
+        os.makedirs(target_folder, exist_ok=True)
 
         try:
             for folder in self.auto_backup_folders:
@@ -1750,11 +1809,10 @@ class VWARScannerGUI:
                         src_file = os.path.join(root_dir, file)
                         rel_path = os.path.relpath(src_file, folder)
                         dest_file = os.path.join(target_folder, rel_path + ".backup")
-
                         os.makedirs(os.path.dirname(dest_file), exist_ok=True)
                         shutil.copy2(src_file, dest_file)
 
-            self.log(f"[AUTO BACKUP] Backup completed in {target_folder}", "load")
+            self.log(f"[AUTO BACKUP] Backup completed in {folder_name}", "load")
         except Exception as e:
             self.log(f"[ERROR] Auto Backup failed: {e}", "load")
 
@@ -1785,13 +1843,14 @@ class VWARScannerGUI:
 
     def save_auto_backup_settings(self):
         config = {
-            "folders": self.auto_backup_folders,
+            "running": self.auto_backup_running,
             "time": self.backup_time_var.get(),
-            "destination": self.auto_backup_destination
+            "destination": getattr(self, "auto_backup_destination", ""),
+            "folders": self.auto_backup_folders
         }
-        with open("auto_backup_config.json", "w") as f:
+        config_path = os.path.join(os.getcwd(), "auto_backup_config.json")
+        with open(config_path, "w") as f:
             json.dump(config, f)
-
 
     # def load_auto_backup_settings(self):
     #     try:
@@ -1814,34 +1873,49 @@ class VWARScannerGUI:
     #     except Exception as e:
     #         self.log(f"[AUTO BACKUP] Failed to load settings: {e}", "load")
 
+    # def load_auto_backup_settings(self):
+    #     try:
+    #         with open("auto_backup_config.json", "r") as f:
+    #             config = json.load(f)
+    #             self.auto_backup_folders = config.get("folders", [])
+    #             self.backup_time_var.set(config.get("time", ""))
+    #             self.auto_backup_destination = config.get("destination", "")
+
+    #             # Update UI
+    #             if self.auto_backup_folders:
+    #                 self.selected_folders_label.config(text="\n".join(self.auto_backup_folders))
+    #             if self.auto_backup_destination:
+    #                 self.auto_backup_dest_label.config(text=self.auto_backup_destination)
+
+    #             # Start auto backup thread
+    #             if self.auto_backup_folders and self.backup_time_var.get() and self.auto_backup_destination:
+    #                 self.auto_backup_running = True
+    #                 self.start_button.config(state="disabled")
+    #                 self.stop_button.config(state="normal")
+    #                 self.auto_backup_thread = threading.Thread(target=self.auto_backup_worker, daemon=True)
+    #                 self.auto_backup_thread.start()
+    #                 self.animate_auto_backup_status()
+    #                 self.log("[AUTO BACKUP] Auto-started based on saved settings.", "load")
+
+    #     except Exception as e:
+    #         self.log(f"[AUTO BACKUP] Failed to load settings: {e}", "load")
+
     def load_auto_backup_settings(self):
+        config_path = os.path.join(os.getcwd(), "auto_backup_config.json")
+        if not os.path.exists(config_path):
+            return
         try:
-            with open("auto_backup_config.json", "r") as f:
+            with open(config_path, "r") as f:
                 config = json.load(f)
-                self.auto_backup_folders = config.get("folders", [])
-                self.backup_time_var.set(config.get("time", ""))
-                self.auto_backup_destination = config.get("destination", "")
-
-                # Update UI
-                if self.auto_backup_folders:
-                    self.selected_folders_label.config(text="\n".join(self.auto_backup_folders))
-                if self.auto_backup_destination:
-                    self.auto_backup_dest_label.config(text=self.auto_backup_destination)
-
-                # Start auto backup thread
-                if self.auto_backup_folders and self.backup_time_var.get() and self.auto_backup_destination:
-                    self.auto_backup_running = True
-                    self.start_button.config(state="disabled")
-                    self.stop_button.config(state="normal")
-                    self.auto_backup_thread = threading.Thread(target=self.auto_backup_worker, daemon=True)
-                    self.auto_backup_thread.start()
-                    self.animate_auto_backup_status()
-                    self.log("[AUTO BACKUP] Auto-started based on saved settings.", "load")
-
+            self.backup_time_var.set(config.get("time", ""))
+            self.auto_backup_folders = config.get("folders", [])
+            self.selected_folders_label.config(text="\n".join(self.auto_backup_folders))
+            self.auto_backup_destination = config.get("destination", "")
+            self.auto_backup_dest_label.config(text=self.auto_backup_destination)
+            if config.get("running", False):
+                self.start_auto_backup()
         except Exception as e:
-            self.log(f"[AUTO BACKUP] Failed to load settings: {e}", "load")
-
-
+            print(f"[ERROR] Failed to load auto backup config: {e}")
 
     def animate_auto_backup_status(self):
         if self.auto_backup_running:
