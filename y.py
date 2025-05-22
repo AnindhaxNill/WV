@@ -1,6 +1,7 @@
 # --- Begin admin check block ---
 import ctypes, sys, os
-
+import json
+from tkinter import messagebox
 def is_admin():
     try:
         return ctypes.windll.shell32.IsUserAnAdmin()
@@ -43,6 +44,27 @@ if __name__ == "__main__":
 
 # --- End admin check block ---
 
+
+
+def check_activation():
+    if not os.path.exists("activation.json"):
+        messagebox.showerror("Activation Required", "You must activate the software first.")
+        sys.exit()
+    try:
+        with open("activation.json", "r") as f:  # <-- fix here
+            data = json.load(f)
+
+        # Optional: Validate structure
+        if not isinstance(data.get("processor_id"), str) or not isinstance(data.get("motherboard_id"), str):
+            messagebox.showerror("Activation Error", "Activation file structure is invalid.")
+            sys.exit()
+
+    except Exception as e:
+        messagebox.showerror("Activation File Corrupted", f"Invalid activation data.\nError: {e}")
+        sys.exit()
+
+check_activation()
+
 import threading
 import yara
 import shutil
@@ -58,6 +80,8 @@ from watchdog.events import FileSystemEventHandler
 import psutil
 import json
 from plyer import notification
+import getpass
+
 
 # ...rest of your code follows
 
@@ -118,9 +142,9 @@ class VWARScannerGUI:
         self.root = root
         self.root.title("VWAR Scanner")
         print("[DEBUG] Tk root and title set")
-        # self.watch_path = "C:/"  # Change this to the directory you want to monitor
+        # self.watch_paths = "D:\soft"  # Change this to the directory you want to monitor
         self.watch_paths = self.get_all_accessible_drives()
-        print(f"[DEBUG] Watching all drives: {self.watch_paths}")
+        # print(f"[DEBUG] Watching all drives: {self.watch_paths}")
         self.monitor = RealTimeMonitor(self, self.watch_paths)
                 
         
@@ -179,7 +203,7 @@ class VWARScannerGUI:
         
         self.rule_folder = os.path.join(os.getcwd(), "yara")
         self.quarantine_folder = os.path.join(os.getcwd(), "quarantine")
-        self.backup_folder = os.path.join(os.getcwd(), "backup")
+        self.backup_folder = os.path.join(os.getcwd(), "Vwarbackup")
         self.target_path = None
         self.rules = None
         self.stop_scan = False
@@ -260,14 +284,27 @@ class VWARScannerGUI:
         self.start_auto_scanning()
         
 
+    # def get_all_accessible_drives(self):
+    #     drives = []
+    #     for p in psutil.disk_partitions(all=False):
+    #         if os.path.exists(p.mountpoint) and os.access(p.mountpoint, os.R_OK):
+    #             drives.append(p.mountpoint)
+    #             # print(drives)
+    #     return drives       
+   
+   
     def get_all_accessible_drives(self):
         drives = []
         for p in psutil.disk_partitions(all=False):
             if os.path.exists(p.mountpoint) and os.access(p.mountpoint, os.R_OK):
                 drives.append(p.mountpoint)
-                # print(drives)
-        return drives       
-    
+
+        # Add the current user profile (Downloads, Desktop, etc.)
+        user_home = os.path.expanduser("~")
+        if os.path.exists(user_home):
+            drives.append(user_home)
+
+        return drives 
 
     
     
@@ -679,6 +716,8 @@ class VWARScannerGUI:
             self.log(f"{file_path} \n", "tested")
             if matches:
                 yara_file = os.path.splitext(os.path.basename(matches[0].namespace))[0]
+                
+                # Get the folder name where the YARA rule is located
                 rule_folder = os.path.basename(os.path.dirname(matches[0].namespace))
                 self.log(f"[MATCH] {file_path}\nRule: {matches[0].rule}\nMalware Type: {yara_file}\nRule Folder: {rule_folder}\n\n", "matched")
                 self.quarantine_file(file_path, yara_file)
@@ -686,7 +725,7 @@ class VWARScannerGUI:
         except Exception as e:
             import traceback
             tb = traceback.format_exc()
-            self.log(f"[ERROR] Failed to scan file: {file_path}\n{tb}", "tested")
+            print(f"[ERROR] Failed to scan file: {file_path}\n{tb}", "tested")
 
     
     
@@ -1103,6 +1142,7 @@ class VWARScannerGUI:
             print("[DEBUG] Starting RealTimeMonitor...")  # ✅ Debug log
             self.monitor = RealTimeMonitor(self, self.watch_paths)
             self.monitor.start()
+            self.monitor.process_pending_files()
             self.monitoring_active = True
             self.auto_scan_button_text.set("Stop Auto Scanning")
             self.auto_scan_status_label.config(text="Status: Running ●", fg="green")
@@ -2038,13 +2078,13 @@ class VWARScannerGUI:
             self.auto_status_label.config(text="Status: Stopped", fg="red")
 
 
-EXCLUDED_PATHS = [
-    # "C:\\Windows",
-    # "C:\\Program Files",
-    # "C:\\Program Files (x86)",
-    "C:\\$Recycle.Bin",
-    "C:\\System Volume Information"
-]
+# EXCLUDED_PATHS = [
+#     # "C:\\Windows",
+#     # "C:\\Program Files",
+#     # "C:\\Program Files (x86)",
+#     "C:\\$Recycle.Bin",
+#     "C:\\System Volume Information"
+# ]
 
 
 
@@ -2052,73 +2092,57 @@ EXCLUDED_PATHS = [
 
 
 
-class FileMonitorHandler(FileSystemEventHandler):
-    def __init__(self, scanner):
-        self.scanner = scanner  # Reference to the VWAR scanner instance
+# class FileMonitorHandler(FileSystemEventHandler):
+#     def __init__(self, scanner):
+#         self.scanner = scanner  # Reference to the VWAR scanner instance
     
-    def on_created(self, event):
-        if not event.is_directory:
-            file_path = event.src_path
-            self.prompt_scan(file_path)
+#     def on_created(self, event):
+#         if not event.is_directory:
+#             file_path = event.src_path
+#             self.prompt_scan(file_path)
 
-    def prompt_scan(self, file_path):
-        def scan_decision():
-            threading.Thread(target=self.scanner.scan_file, args=(file_path,), daemon=True).start()
-        self.scanner.root.after(0, scan_decision)
-        
-
-
-
-# class RealTimeMonitor:
-#     def __init__(self, app_ref, paths=None):
-#         self.app = app_ref
-#         self.observer = Observer()
-#         self.paths = paths or []
-#         self.event_handler = self.create_event_handler()
-#         self.running = False
-
-#     def create_event_handler(self):
-#         class Handler(FileSystemEventHandler):
-#             def on_created(inner_self, event):
-#                 if not event.is_directory:
-#                     file_path = os.path.abspath(event.src_path)
-#                     # Skip excluded paths
-#                     if any(file_path.startswith(ex) for ex in EXCLUDED_PATHS):
-#                         return
-#                     self.app.log(f"[MONITOR] New file detected: {file_path}", "load")
-#                     self.app.scan_file(file_path)
-#         return Handler()
-
-#     def start(self):
-#         self.running = True
-#         for path in self.paths:
-#             for root, dirs, _ in os.walk(path):
-#                 if any(root.startswith(ex) for ex in EXCLUDED_PATHS):
-#                     continue
-#                 try:
-#                     self.observer.schedule(self.event_handler, root, recursive=True)
-#                 except Exception as e:
-#                     print(f"[WARNING] Cannot watch {root}: {e}")
-#         self.observer.start()
-
-#     def stop(self):
-#         self.running = False
-#         self.observer.stop()
-#         self.observer.join()
-
-
-
+#     def prompt_scan(self, file_path):
+#         def scan_decision():
+#             threading.Thread(target=self.scanner.scan_file, args=(file_path,), daemon=True).start()
+#         self.scanner.root.after(0, scan_decision)
 
 class RealTimeMonitor(FileSystemEventHandler):
     def __init__(self, gui, watch_paths):
+        
         self.gui = gui
         self.watch_paths = watch_paths if isinstance(watch_paths, list) else [watch_paths]
         self.observer = Observer()
         self.recent_events = {}
-        self.excluded_folders = ["quarantine", "backup", "yara", "VWARbackup"]
 
+        
+        user = getpass.getuser()
+        self.excluded_folders = [
+        os.path.join("C:\\Users", user, "AppData", "Local", "Packages"),
+        os.path.join("C:\\Users", user, "AppData", "Local", "Temp"),
+        "C:\\$Recycle.Bin",
+        "C:\\System Volume Information",
+        "C:\\Windows",
+        "C:\\ProgramData",
+        os.path.join(os.getcwd(), "quarantine"),
+        os.path.join(os.getcwd(), "backup"),
+        os.path.join(os.getcwd(), "yara"),
+        os.path.join(os.getcwd(), "VWARbackup")
+    ]
+
+        # Unwanted file types and patterns
+        self.excluded_extensions = (
+            ".tmp", ".log", ".lock", ".crdownload", ".part", ".ds_store", "thumbs.db"
+        )
+        self.excluded_prefixes = ("~$",)
+        
+        
+        self.pending_scan_files = set()
+
+    
     def start(self):
+        print("[DEBUG] Watching paths:")
         for path in self.watch_paths:
+            print("  ➤", path)
             try:
                 self.observer.schedule(self, path=path, recursive=True)
                 print(f"[DEBUG] Monitoring started on: {path}")
@@ -2130,108 +2154,116 @@ class RealTimeMonitor(FileSystemEventHandler):
         self.observer.stop()
         self.observer.join()
 
+    # def is_excluded(self, path):
+    #     return any(folder.lower() in path.lower() for folder in self.excluded_folders)
+
+
     def is_excluded(self, path):
-        return any(folder.lower() in path.lower() for folder in self.excluded_folders)
+        path = os.path.abspath(path).lower()
+        return any(os.path.abspath(folder).lower() in path for folder in self.excluded_folders)
+
+
+
+    def is_excluded_file(self, path):
+        filename = os.path.basename(path).lower()
+        if filename.endswith(self.excluded_extensions) or filename.startswith(self.excluded_prefixes):
+            return True
+        try:
+            if os.path.exists(path) and os.path.getsize(path) == 0:
+                return True
+        except Exception as e:
+            print(f"[WARNING] Could not check file size: {path} ({e})")
+            return True
+        return False
 
     def on_created(self, event):
         if event.is_directory:
             return
 
         path = event.src_path
-        now = time.time()
+        print(f"[DEBUG] File event detected: {path}")
 
-        # Debounce
+        now = time.time()
         last_time = self.recent_events.get(path, 0)
         if now - last_time < 5:
             return
         self.recent_events[path] = now
 
-        # Skip excluded folders
-        if self.is_excluded(path):
-            print(f"[DEBUG] Skipping excluded path: {path}")
+        if self.is_excluded(path) or self.is_excluded_file(path):
             return
 
-        # Filter file types (optional)
-        if not path.lower().endswith((".exe", ".dll", ".docx")):
+        # Delay scanning in a background thread
+        threading.Thread(target=self.wait_and_scan_file, args=(path,), daemon=True).start()
+
+
+    def wait_and_scan_file(self, path):
+        """Wait until the file becomes accessible before scanning it."""
+        max_wait = 10  # seconds
+        waited = 0
+
+        while waited < max_wait:
+            if os.path.exists(path) and os.path.isfile(path):
+                try:
+                    with open(path, 'rb'):
+                        break  # file is accessible
+                except Exception:
+                    pass
+            time.sleep(0.5)
+            waited += 0.5
+
+        if waited >= max_wait:
+            self.gui.log(f"[WARNING] File still not accessible, skipping: {path}", "load")
             return
 
-        print(f"[DEBUG] New file detected: {path}")
-        self.gui.log(f"[INFO] New file created: {path}", "load")
-        self.gui.scan_file(path)
+        if self.gui.monitoring_active:
+            self.gui.scan_file(path)
+            print(f"[DEBUG] File ready, scanned: {path}")
+        else:
+            self.pending_scan_files.add(path)
+            print(f"[INFO] Stored for future scan: {path}")
+
+
+    # def on_created(self, event):
+    #     if event.is_directory:
+    #         return
+
+    #     path = event.src_path
+    #     print(f"[DEBUG] File event detected: {path}")  # ✅ always print the path
+
+    #     now = time.time()
+    #     last_time = self.recent_events.get(path, 0)
+    #     if now - last_time < 5:
+    #         return
+    #     self.recent_events[path] = now
+
+    #     if self.is_excluded(path):
+    #         # print(f"[DEBUG] Skipping excluded path: {path}")
+    #         return
+
+    #     if self.is_excluded_file(path):
+    #         # print(f"[DEBUG] Skipping excluded file: {path}")
+    #         return
+
+        
+    #     self.gui.log(f"[INFO] New file created: {path}", "load")
+    #     # self.gui.scan_file(path)
+    #     if self.gui.monitoring_active:
+    #         self.gui.scan_file(path)
+    #         print(f"[DEBUG] New file detected and scanned: {path}")
+    #     else:
+    #         self.pending_scan_files.add(path)
+    #         print(f"[INFO] Stored for future scan: {path}")
+
+    def process_pending_files(self):
+        for path in list(self.pending_scan_files):
+            if os.path.exists(path):
+                print(f"[INFO] Processing pending file: {path}")
+                self.gui.scan_file(path)
+        self.pending_scan_files.clear()
 
 
 
 
-
-
-
-
-
-# class RealTimeMonitor:
-#     def __init__(self, scanner, watch_path):
-#         self.scanner = scanner  # VWAR scanner instance
-#         self.watch_path = watch_path  # Directory to monitor
-#         self.observer = Observer()
-
-#     # def start(self):
-#     #     """Start monitoring for new files."""
-#     #     event_handler = FileMonitorHandler(self.scanner)
-#     #     self.observer.schedule(event_handler, self.watch_path, recursive=True)
-#     #     monitoring_thread = threading.Thread(target=self.observer.start, daemon=True)
-#     #     monitoring_thread.start()
-    
-#     def start(self):
-#         event_handler = FileMonitorHandler(self.scanner)
-#         self.observer.schedule(event_handler, self.watch_path, recursive=True)
-#         self.observer.start()  # Start directly — NOT in a new thread
-
-#     def stop(self):
-#         """Stop monitoring for new files."""
-#         self.observer.stop()
-#         self.observer.join()
-
-
-# 
-# import sys
-
-# def is_admin():
-#     try:
-#         return ctypes.windll.shell32.IsUserAnAdmin()
-#     except:
-#         return False
-
-# if not is_admin():
-#     ctypes.windll.shell32.ShellExecuteW(
-#         None, "runas", sys.executable, " ".join(sys.argv), None, 1
-#     )
-#     sys.exit()
-
-
-# if __name__ == "__main__":
-#     root = Tk()
-#     app = VWARScannerGUI(root)
-#     root.resizable(False, False)
-#     root.mainloop()
-
-# if __name__ == "__main__":
-#     root = Tk()
-#     app = VWARScannerGUI(root)
-#     print("Launching VWAR Scanner GUI...")
-#     root.mainloop()
-
-
-# if __name__ == "__main__":
-#     if not is_admin() and not os.environ.get("VWAR_ELEVATED"):
-#         relaunch_as_admin()
-#         sys.exit()
-
-#     print("Launching VWAR Scanner GUI...")
-#     try:
-#         root = Tk()
-#         app = VWARScannerGUI(root)
-#         root.mainloop()
-#     except Exception as e:
-#         print(f"[CRITICAL ERROR] GUI failed to launch: {e}")
 
 
 if __name__ == "__main__":
@@ -2246,7 +2278,7 @@ if __name__ == "__main__":
 
         app = VWARScannerGUI(root)
         print("GUI object created")  # ✅ You must see this now
-
+        root.resizable(False, False)
         root.deiconify()  # 🔓 Ensure root is not hidden
         root.mainloop()
     except Exception as e:
