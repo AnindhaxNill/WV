@@ -1,3 +1,0 @@
-Failed to compile C:\Users\bfini\Desktop\WV\yara\ransomware\apt_apt15.yar: C:\Users\bfini\Desktop\WV\yara\ransomware\apt_apt15.yar(0): syntax error, unexpected end of file, expecting string identifier
-Failed to compile C:\Users\bfini\Desktop\WV\yara\ransomware\apt_apt27_hyperbro.yar: C:\Users\bfini\Desktop\WV\yara\ransomware\apt_apt27_hyperbro.yar(0): syntax error, unexpected end of file, expecting <condition>
-Failed to compile C:\Users\bfini\Desktop\WV\yara\worms\apt_apt27_rshell.yar: C:\Users\bfini\Desktop\WV\yara\worms\apt_apt27_rshell.yar(0): syntax error, unexpected end of file, expecting <or> or <and>
