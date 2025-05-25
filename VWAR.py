@@ -68,7 +68,7 @@ check_activation()
 import threading
 import yara
 import shutil
-from tkinter import Tk, Frame, Canvas, Label, Text, Button, filedialog, messagebox, Scrollbar, StringVar, Toplevel, Listbox, ttk, Entry
+from tkinter import Tk, Frame, Canvas, Label, Text, Button, filedialog, messagebox, Scrollbar, StringVar, Toplevel, Listbox, ttk, Entry,LabelFrame
 from tkinter.ttk import Progressbar
 import requests
 import time
@@ -80,6 +80,9 @@ from watchdog.events import FileSystemEventHandler
 import psutil
 import json
 from plyer import notification
+import getpass
+import webbrowser
+import urllib.request
 
 # ...rest of your code follows
 
@@ -130,8 +133,24 @@ def decode_base64(encoded_string):
             return f"Decoding Error: {e}"
         
         
+CURRENT_VERSION = "1.0.1"
 
+def check_for_updates():
+    try:
+        url = "https://raw.githubusercontent.com/AnindhaxNill/VWAR-release/master/update_info.json"
+        with urllib.request.urlopen(url) as response:
+            data = json.loads(response.read().decode())
+            print(data)
+        latest = data["latest_version"]
+        download_url = data["download_url"]
+        notes = data.get("changelog", "")
 
+        if latest != CURRENT_VERSION:
+            if messagebox.askyesno("Update Available",
+                f"A new version {latest} is available.\n\nChangelog:\n{notes}\n\nDo you want to update now?"):
+                webbrowser.open(download_url)
+    except Exception as e:
+        print(f"[ERROR] Failed to check for updates: {e}")
 
 class VWARScannerGUI:
     
@@ -140,26 +159,10 @@ class VWARScannerGUI:
         self.root = root
         self.root.title("VWAR Scanner")
         print("[DEBUG] Tk root and title set")
-        # self.watch_path = "C:/"  # Change this to the directory you want to monitor
+        # self.watch_paths = "D:\soft"  # Change this to the directory you want to monitor
         self.watch_paths = self.get_all_accessible_drives()
-        print(f"[DEBUG] Watching all drives: {self.watch_paths}")
         self.monitor = RealTimeMonitor(self, self.watch_paths)
                 
-        
-        
-        # try:
-        #     print("[DEBUG] Initializing RealTimeMonitor")
-        #     self.monitor = RealTimeMonitor(self, self.watch_path)
-        #     print("[DEBUG] RealTimeMonitor initialized")
-        # except Exception as e:
-        #     print(f"[ERROR] RealTimeMonitor init failed: {e}")
-        #     import traceback
-        #     traceback.print_exc()
-        # self.monitor =RealTimeMonitor(self,self.watch_path)
-        # self.monitor = RealTimeMonitor(self, self.watch_path)
-        # self.monitor.start()  # Start real-time monitoring
-        
-        
         
         # Initialize monitoring state
         self.monitoring_active = False  # Must be False so scanning actually starts
@@ -221,7 +224,7 @@ class VWARScannerGUI:
         self.auto_backup_thread = None
         self.selected_backup_folder = ""
     
-
+        
                 
         # GUI Configuration
         root.geometry("1043x722")
@@ -280,16 +283,28 @@ class VWARScannerGUI:
         self.root.after(0, lambda: self.root.attributes("-topmost", False))  # 🔓 Let it behave normally after that
           # ✅ Auto start the real-time monitoring
         self.start_auto_scanning()
-        
+        check_for_updates()
 
-    # def get_all_accessible_drives(self):
-    #     drives = []
-    #     for p in psutil.disk_partitions(all=False):
-    #         if os.path.exists(p.mountpoint) and os.access(p.mountpoint, os.R_OK):
-    #             drives.append(p.mountpoint)
-    #             # print(drives)
-    #     return drives       
-   
+
+
+
+
+    def check_for_updates():
+        try:
+            url = "https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/main/update_info.json"
+            with urllib.request.urlopen(url) as response:
+                data = json.loads(response.read().decode())
+
+            latest = data["latest_version"]
+            download_url = data["download_url"]
+            notes = data.get("changelog", "")
+
+            if latest != CURRENT_VERSION:
+                if messagebox.askyesno("Update Available",
+                    f"A new version {latest} is available.\n\nChangelog:\n{notes}\n\nDo you want to update now?"):
+                    webbrowser.open(download_url)
+        except Exception as e:
+            print(f"[ERROR] Failed to check for updates: {e}")
    
     def get_all_accessible_drives(self):
         drives = []
@@ -310,6 +325,7 @@ class VWARScannerGUI:
     def update_quarantine_listbox(self):
         """Refresh the quarantine listbox with latest quarantined files and metadata."""
         self.quarantine_listbox.delete(0, "end")
+        self.display_index_to_meta.clear()
         index = 1
 
         for file_name in os.listdir(self.quarantine_folder):
@@ -321,37 +337,65 @@ class VWARScannerGUI:
 
             if not os.path.exists(meta_path):
                 continue  # Skip files without metadata
-
+            
+            
             try:
-                with open(meta_path, "r") as meta_file:
-                    metadata = json.load(meta_file)
-
+                with open(meta_path, "r", encoding="utf-8") as f:
+                    metadata = json.load(f)
+                    
                 original_path = metadata.get("original_path", "Unknown")
-                timestamp = metadata.get("timestamp", "Unknown")
-                matched_rules = metadata.get("matched_rules", [])
-
-                # Format timestamp for display
+                timestamp = metadata.get("timestamp", "")
+                matched_rules = metadata.get("matched_rules", [])   
+                formatted_time = "Unknown" 
                 if len(timestamp) == 14:
-                    formatted_time = f"{timestamp[:4]}-{timestamp[4:6]}-{timestamp[6:8]} {timestamp[8:10]}:{timestamp[10:12]}:{timestamp[12:]}"
-                else:
-                    formatted_time = "Unknown"
-
-                # rules_str = ", ".join(matched_rules) if matched_rules else "Unknown"
+                        formatted_time = f"{timestamp[:4]}-{timestamp[4:6]}-{timestamp[6:8]} {timestamp[8:10]}:{timestamp[10:12]}:{timestamp[12:]}"
                 rules_str = matched_rules
-
-                # Build display text
+                fname = file_name.split("__")[0]      
                 display_text = (
-                    f"{index}. File: {file_name.split('__')[0]}\n"
-                    f"   → Quarantined: {formatted_time}\n"
-                    f"   → From: {original_path}\n"
-                    f"   → Matched Rules: {rules_str}"
-                )
-
+                        f"{index}. File: {fname}\n"
+                        f"   → Quarantined: {formatted_time}\n"
+                        f"   → From: {original_path}\n"
+                        f"   → Matched Rules: {rules_str}\n"
+                        f"   → Type: {rules_str}"
+                    )
                 self.quarantine_listbox.insert("end", display_text)
+                self.display_index_to_meta[index - 1] = meta_path
                 index += 1
-
             except Exception as e:
                 self.log(f"[ERROR] Failed to read metadata for {file_name}: {e}", "load")
+               
+            
+
+            # try:
+            #     with open(meta_path, "r") as meta_file:
+            #         metadata = json.load(meta_file)
+
+            #     original_path = metadata.get("original_path", "Unknown")
+            #     timestamp = metadata.get("timestamp", "Unknown")
+            #     matched_rules = metadata.get("matched_rules", [])
+
+            #     # Format timestamp for display
+            #     if len(timestamp) == 14:
+            #         formatted_time = f"{timestamp[:4]}-{timestamp[4:6]}-{timestamp[6:8]} {timestamp[8:10]}:{timestamp[10:12]}:{timestamp[12:]}"
+            #     else:
+            #         formatted_time = "Unknown"
+
+            
+            #     rules_str = matched_rules
+
+            #     # Build display text
+            #     display_text = (
+            #         f"{index}. File: {file_name.split('__')[0]}\n"
+            #         f"   → Quarantined: {formatted_time}\n"
+            #         f"   → From: {original_path}\n"
+            #         f"   → Matched Rules: {rules_str}"
+            #     )
+
+            #     self.quarantine_listbox.insert("end", display_text)
+            #     index += 1
+
+            # except Exception as e:
+            #     self.log(f"[ERROR] Failed to read metadata for {file_name}: {e}", "load")
         
         
     def log(self, message, log_type):
@@ -374,29 +418,14 @@ class VWARScannerGUI:
             timeout=10  # duration in seconds
         )     
             
-    # def notify_match(self, file_path, matches):
-    #     """Show a popup notification when a match is found."""
-    #     try:
-    #         filename = os.path.basename(file_path)
-    #         match_text = ", ".join(matches)
-    #         messagebox.showwarning(
-    #             "⚠️ Match Detected!",
-    #             f"File: {filename}\nMatched Rule(s): {match_text}\nThe file has been quarantined."
-    #         )
-    #     except Exception as e:
-    #         self.log(f"[ERROR] Notification failed: {e}", "load")
-
+  
     def create_folders(self):
         """Ensure required folders exist."""
         os.makedirs(self.rule_folder, exist_ok=True)
         os.makedirs(self.quarantine_folder, exist_ok=True)
         os.makedirs(self.backup_folder, exist_ok=True)
 
-    # def show_page(self, page_name):
-    #     """Display the requested page."""
-    #     for page in self.pages.values():
-    #         page.place_forget()
-    #     self.pages[page_name].place(x=0, y=0, width=1043, height=722)
+   
     
     def show_page(self, page_name):
         # """Display the requested page."""
@@ -434,7 +463,7 @@ class VWARScannerGUI:
             font=("Inter", 10, "bold"),
             bg="#009AA5",
             fg="white"
-        ).place(x=110, y=540)
+        ).place(x=650, y=400)
 
         # Blinking status label
         self.home_scan_status_label = Label(
@@ -444,9 +473,19 @@ class VWARScannerGUI:
             bg="#009AA5",
             fg="red"
         )
-        self.home_scan_status_label.place(x=110, y=570)
+        self.home_scan_status_label.place(x=650, y=430)
         
-        
+            # Contact Us Section
+        contact_frame = LabelFrame(home_page, text="About / Contact Us", bg="#009AA5", fg="white", font=("Arial", 12, "bold"), padx=10, pady=10)
+        contact_frame.place(x=20, y=500, width=600, height=170)
+
+        Label(contact_frame, text="🛡 VWAR Scanner", bg="#009AA5", fg="white", font=("Arial", 10, "bold")).pack(anchor="w")
+        Label(contact_frame, text=f"Version: {CURRENT_VERSION}", bg="#009AA5", fg="white", font=("Arial", 10)).pack(anchor="w")
+        Label(contact_frame, text="Developer: Anindha Mahalanabish", bg="#009AA5", fg="white", font=("Arial", 10)).pack(anchor="w")
+        Label(contact_frame, text="Email: vwarsecurity@example.com", bg="#009AA5", fg="white", font=("Arial", 10)).pack(anchor="w")
+        Label(contact_frame, text="Website: www.vwarsec.com", bg="#009AA5", fg="white", font=("Arial", 10)).pack(anchor="w")
+        Label(contact_frame, text="Support: support@vwarsec.com", bg="#009AA5", fg="white", font=("Arial", 10)).pack(anchor="w")
+
   
 
     def create_scanning_page(self):
@@ -679,32 +718,7 @@ class VWARScannerGUI:
         
         
         
-    # def scan_file(self, file_path):
-    #     if self.stop_scan:
-    #         return
-    #     try:
-    #         matches = self.rules.match(file_path, timeout=60)
-    #         self.log(f"{file_path} \n", "tested")
-            
-    #         if matches:
-              
-    #             yara_file = os.path.splitext(os.path.basename(matches[0].namespace))[0]  # Remove .yar extension
-
-    #             # Get the folder name where the YARA rule is located
-    #             rule_folder = os.path.dirname(matches[0].namespace)
-    #             folder_name = os.path.basename(rule_folder)
-
-                
-    #             # Log the match information with the folder name
-    #             self.log(f"[MATCH] {file_path}\nRule: {matches[0].rule}\nMalware Type: {yara_file}\nRule Folder: {folder_name}\n\n", "matched")
-
-    #             # Quarantine the file
-    #             self.quarantine_file(file_path,yara_file) # Move matched file to quarantine
-               
-    #             self.notify_threat_detected(file_path, yara_file)
-
-    #     except Exception as e:
-    #         self.log(f"[ERROR] Failed to scan file '{file_path}': {e}", "tested")
+   
 
     def scan_file(self, file_path):
         if self.stop_scan:
@@ -714,14 +728,16 @@ class VWARScannerGUI:
             self.log(f"{file_path} \n", "tested")
             if matches:
                 yara_file = os.path.splitext(os.path.basename(matches[0].namespace))[0]
+                
+                # Get the folder name where the YARA rule is located
                 rule_folder = os.path.basename(os.path.dirname(matches[0].namespace))
                 self.log(f"[MATCH] {file_path}\nRule: {matches[0].rule}\nMalware Type: {yara_file}\nRule Folder: {rule_folder}\n\n", "matched")
                 self.quarantine_file(file_path, yara_file)
-                self.notify_threat_detected(file_path, yara_file)
+                # self.notify_threat_detected(file_path, yara_file)
         except Exception as e:
             import traceback
             tb = traceback.format_exc()
-            self.log(f"[ERROR] Failed to scan file: {file_path}\n{tb}", "tested")
+            print(f"[ERROR] Failed to scan file: {file_path}\n{tb}", "tested")
 
     
     
@@ -753,6 +769,8 @@ class VWARScannerGUI:
             meta_path = quarantined_path + ".meta"
             with open(meta_path, "w") as meta_file:
                 json.dump(metadata, meta_file)
+                
+            self.notify_threat_detected(file_path, matched_rules)
             
         except Exception as e:
             self.log(f"[ERROR] Failed to quarantine {file_path}: {e}", "matched")
@@ -815,13 +833,7 @@ class VWARScannerGUI:
         self.auto_scan_button_text = StringVar(value="Start Auto Scanning")
         self.monitoring_active = False
         
-        
-        # self.auto_scan_progress = ttk.Progressbar(
-        #     auto_scanning_page,
-        #     mode='indeterminate',
-        #     length=200
-        # )
-        # self.auto_scan_progress.place(x=20, y=470)
+       
 
     # Add a new status label for auto scanning status animation
         self.auto_scan_status_label = Label(
@@ -833,27 +845,7 @@ class VWARScannerGUI:
         )
         self.auto_scan_status_label.place(x=20, y=470)
         
-        
-        # def start_auto_scanning():
-        #     if not self.monitoring_active:
-        #         self.monitor = RealTimeMonitor(self, self.watch_path)
-        #         self.monitor.start()
-        #         self.monitoring_active = True
-        #         self.auto_scan_button_text.set("Stop Auto Scanning")
-        #         self.auto_scan_progress.start(10)  # Start the animation with a 10ms interval
-        #         self.home_scan_progress.start(10)  # Start home page animation
-        #         self.log("[INFO] Auto scanning started.", "load")
-
-        # def stop_auto_scanning():
-        #     if self.monitoring_active and hasattr(self, 'monitor'):
-        #         self.monitor.stop()
-        #         self.monitoring_active = False
-        #         self.auto_scan_button_text.set("Start Auto Scanning")
-        #         self.auto_scan_progress.stop()  # Stop the animation
-        #         self.home_scan_progress.stop()  # Stop home page animation
-        #         self.log("[INFO] Auto scanning stopped.", "load")
-        
-        
+      
 
 
 
@@ -999,6 +991,12 @@ class VWARScannerGUI:
         # Mapping display index to metadata path
         self.display_index_to_meta = {}
 
+
+
+
+
+
+
         def refresh_quarantine_list():
             self.quarantine_listbox.delete(0, "end")
             self.display_index_to_meta.clear()
@@ -1099,38 +1097,6 @@ class VWARScannerGUI:
     
     
     
-
-    
-    # def start_auto_scanning(self):
-    #     if not self.monitoring_active:
-    #         self.monitor = RealTimeMonitor(self, self.watch_path)
-    #         self.monitor.start()
-    #         self.monitoring_active = True
-    #         self.auto_scan_button_text.set("Stop Auto Scanning")
-    #         # Instead of starting a progress bar, start the blinking animation:
-    #         self.animate_auto_scan_status()
-    #         # Optionally, keep the home page animation if desired:
-    #         # self.home_scan_progress()
-    #         self.log("[INFO] Auto scanning started.", "load")
-            
-    # def stop_auto_scanning(self):
-    #     if self.monitoring_active and hasattr(self, 'monitor'):
-    #         self.monitor.stop()  # Properly stop the observer
-    #         self.monitoring_active = False
-    #         self.auto_scan_button_text.set("Start Auto Scanning")
-    #         self.auto_scan_status_label.config(text="Status: Stopped", fg="red")
-    #         self.log("[INFO] Auto scanning stopped.", "load")   
-    
-    # def start_auto_scanning(self):
-    #     if not self.monitoring_active:
-    #         self.monitor = RealTimeMonitor(self, self.watch_path)
-    #         self.monitor.start()
-    #         self.monitoring_active = True
-    #         self.auto_scan_button_text.set("Stop Auto Scanning")
-    #         self.auto_scan_status_label.config(text="Status: Running ●", fg="green")
-    #         self.animate_auto_scan_status()
-    #         # self.log("[INFO] Auto scanning started.", "load")
-    #         print("[INFO] Auto scanning started.", "load")
     
     
     def start_auto_scanning(self):
@@ -1138,6 +1104,7 @@ class VWARScannerGUI:
             print("[DEBUG] Starting RealTimeMonitor...")  # ✅ Debug log
             self.monitor = RealTimeMonitor(self, self.watch_paths)
             self.monitor.start()
+            self.monitor.process_pending_files()
             self.monitoring_active = True
             self.auto_scan_button_text.set("Stop Auto Scanning")
             self.auto_scan_status_label.config(text="Status: Running ●", fg="green")
@@ -1194,9 +1161,7 @@ class VWARScannerGUI:
             backup_page = Frame(self.root, bg="#009AA5")
             self.pages["backup"] = backup_page
 
-            # Button(backup_page, text="Back", command=lambda: self.show_page("home"),
-            #     bg="blue", fg="white", font=("Inter", 12)).place(x=10, y=10, width=80, height=30)
-
+         
             # Create internal frames
             self.menu_frame = Frame(backup_page, bg="#009AA5")
             self.menu_frame.place(x=0, y=50, relwidth=1, relheight=1)
@@ -1308,8 +1273,7 @@ class VWARScannerGUI:
             )
             self.vwar_folder_label.place(x=20, y=70, width=500, height=30)
 
-            # Button(self.restore_backup_frame, text="Select Folder", command=self.select_vwarbackup_folder,
-            #     bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=60, width=180, height=40)
+          
 
             Button(self.restore_backup_frame, text="Select Folder", command=self.select_vwarbackup_folder, bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=60, width=180, height=40)
             label_help = Label(self.restore_backup_frame, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
@@ -1331,8 +1295,7 @@ class VWARScannerGUI:
             )
             self.restore_file_label.place(x=20, y=160, width=500, height=30)
 
-            # Button(self.restore_backup_frame, text="Select Backup File", command=self.select_restore_file,
-            #     bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=160, width=180, height=40)
+           
             Button(self.restore_backup_frame, text="Select Backup File", command=self.select_restore_file, bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=160, width=180, height=40)
             label_help = Label(self.restore_backup_frame, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
             label_help.place(x=790, y=160)
@@ -1352,8 +1315,7 @@ class VWARScannerGUI:
             )
             self.restore_location_label.place(x=20, y=250, width=500, height=30)
 
-            # Button(self.restore_backup_frame, text="Select Location", command=self.select_restore_location,
-            #     bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=250, width=180, height=40)
+           
 
 
             Button(self.restore_backup_frame, text="Select Location", command=self.select_restore_location, bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=250, width=180, height=40)
@@ -1379,9 +1341,6 @@ class VWARScannerGUI:
 
             # === Auto Backup Frame ===
 
-    # def hide_all_frames(self):
-    #     for frame in [self.menu_frame, self.manual_backup_frame, self.restore_backup_frame, self.auto_backup_frame]:
-    #         frame.place_forget()     
     def hide_all_frames(self):
         for frame in [self.menu_frame, self.manual_backup_frame, self.restore_backup_frame, self.auto_backup_frame]:
             frame.place_forget()
@@ -1406,13 +1365,9 @@ class VWARScannerGUI:
 
     def show_auto_backup(self):
         self.hide_all_frames()
-        # self.menu_frame.place_forget()
         self.auto_backup_frame.place(x=0, y=50, relwidth=1, relheight=1)
         # === Helper backup methods ===
 
-        # def show_manual_backup(self):
-        #     """Focus on manual backup area. (Placeholder for now since always visible)"""
-        #     pass  # Later you can hide/show areas here
 
  # === Helper backup methods ===
 
@@ -1538,9 +1493,7 @@ class VWARScannerGUI:
                                             bg="white", fg="black", anchor="w", relief="sunken")
         self.selected_folders_label.place(x=20, y=100, width=500, height=30)
 
-        # Button(self.auto_backup_frame, text="Select Folders", command=self.select_auto_backup_folders,
-        #     bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=100, width=180, height=40)
-
+       
 
         Button(self.auto_backup_frame, text="Select Folders", command=self.select_auto_backup_folders, bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=110, width=180, height=40)
         label_help = Label(self.auto_backup_frame, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
@@ -1551,11 +1504,7 @@ class VWARScannerGUI:
         Label(self.auto_backup_frame, text="Step 2: Set Daily Backup Time (HH:MM) 24 hour clock", font=("Inter", 14, "bold"),
             bg="#009AA5", fg="white").place(x=20, y=160)
 
-        # self.backup_time_entry = Entry(self.auto_backup_frame, textvariable=self.backup_time_var, font=("Inter", 12))
-        # self.backup_time_entry.place(x=20, y=200, width=120, height=30)
-        # Label(self.auto_backup_frame, text="Time (HH:MM):", bg="#333333", fg="white", font=("Arial", 12)).place(x=20, y=200)
-        # self.auto_backup_time_entry = Entry(self.auto_backup_frame, font=("Arial", 12))
-        # self.auto_backup_time_entry.place(x=20, y=200, width=120, height=30)
+       
         self.backup_time_var = StringVar()
         self.auto_backup_time_entry = Entry(self.auto_backup_frame, textvariable=self.backup_time_var, font=("Arial", 12))
         self.auto_backup_time_entry.place(x=20, y=200, width=120, height=30)
@@ -1573,8 +1522,7 @@ class VWARScannerGUI:
                                             font=("Inter", 11), bg="white", fg="black", anchor="w", relief="sunken")
         self.auto_backup_dest_label.place(x=20, y=290, width=500, height=30)
 
-        # Button(self.auto_backup_frame, text="Select Backup Destination", command=self.select_auto_backup_destination,
-        #     bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=290, width=230, height=40)
+       
         Button(self.auto_backup_frame, text="Select Destination", command=self.select_auto_backup_destination, bg="#004953", fg="white", font=("Inter", 12, "bold")).place(x=600, y=290, width=180, height=40)
         label_help = Label(self.auto_backup_frame, text="?", bg="#009AA5", fg="white", font=("Arial", 12, "bold"))
         label_help.place(x=790, y=290)
@@ -1660,249 +1608,7 @@ class VWARScannerGUI:
         
         
 
-    # def perform_rotating_backup(self):
-    #     today = datetime.now().strftime("%d-%m-%Y")
-    #     state_file = os.path.join(self.auto_backup_destination, "AutoBackup", "auto_backup_state.json")
-    #     backup_root = os.path.join(self.auto_backup_destination, "AutoBackup")
-    #     os.makedirs(backup_root, exist_ok=True)
-
-    #     # Load or initialize state
-    #     if os.path.exists(state_file):
-    #         with open(state_file, "r") as f:
-    #             state = json.load(f)
-    #         last_index = state.get("last_index", 0)
-    #         last_date = state.get("last_date", "")
-    #     else:
-    #         state = {}
-    #         last_index = 0
-    #         last_date = ""
-
-    #     # If today is already backed up, do nothing
-    #     today_already_done = False
-    #     for folder in os.listdir(backup_root):
-    #         if folder.endswith(today):
-    #             self.log(f"[AUTO BACKUP] Skipped - Already backed up today in {folder}", "load")
-    #             today_already_done = True
-    #             break
-
-    #     if today_already_done:
-    #         return
-
-    #     # Determine next day index (rotate 1-7)
-    #     next_index = (last_index % 7) + 1
-    #     folder_name = f"day{next_index}_{today}"
-    #     day_folder = os.path.join(backup_root, folder_name)
-    #     os.makedirs(day_folder, exist_ok=True)
-
-    #     try:
-    #         for folder in self.auto_backup_folders:
-    #             for root_dir, _, files in os.walk(folder):
-    #                 for file in files:
-    #                     src_file = os.path.join(root_dir, file)
-    #                     rel_path = os.path.relpath(src_file, folder)
-    #                     dest_file = os.path.join(day_folder, rel_path + ".backup")
-
-    #                     os.makedirs(os.path.dirname(dest_file), exist_ok=True)
-    #                     shutil.copy2(src_file, dest_file)
-
-    #         # Save new state
-    #         state["last_index"] = next_index
-    #         state["last_date"] = today
-    #         with open(state_file, "w") as f:
-    #             json.dump(state, f)
-
-    #         self.log(f"[AUTO BACKUP] Completed in {folder_name}", "load")
-    #     except Exception as e:
-    #         self.log(f"[ERROR] Auto Backup failed: {e}", "load")
-
-
-
-    # def perform_rotating_backup(self):
-    #     from datetime import datetime
-
-    #     today = datetime.now().strftime("%d-%m-%Y")
-    #     current_time = datetime.now().time()
-
-    #     backup_root = os.path.join(self.auto_backup_destination, "AutoBackup")
-    #     os.makedirs(backup_root, exist_ok=True)
-
-    #     # Regex pattern to match folders like: day3_12-05-25
-    #     pattern = re.compile(r"day(\d)_(\d{2}-\d{2}-\d{2})")
-
-    #     last_day = 0
-    #     last_date_str = ""
-    #     last_date_obj = None
-    #     latest_folder_path = ""
-
-    #     for folder in os.listdir(backup_root):
-    #         match = pattern.match(folder)
-    #         if match:
-    #             day_num = int(match.group(1))
-    #             folder_date = match.group(2)
-
-    #             # Convert date format from DD-MM-YY to datetime object
-    #             try:
-    #                 folder_date_obj = datetime.strptime(folder_date, "%d-%m-%y")
-    #             except:
-    #                 continue
-
-    #             if not last_date_obj or folder_date_obj > last_date_obj:
-    #                 last_day = day_num
-    #                 last_date_str = folder_date
-    #                 last_date_obj = folder_date_obj
-    #                 latest_folder_path = os.path.join(backup_root, folder)
-
-    #     # Decide whether to create a new folder or reuse today's
-    #     today_obj = datetime.strptime(today, "%d-%m-%Y")
-    #     today_short = today_obj.strftime("%d-%m-%y")  # To compare with folder format
-
-    #     target_folder = ""
-
-    #     if last_date_str == today_short:
-    #         # Reuse today's folder if current time > previous time
-    #         target_folder = latest_folder_path
-    #         self.log(f"[AUTO BACKUP] Appending to existing {os.path.basename(target_folder)}", "load")
-    #     else:
-    #         # Rotate to next day number (1–7)
-    #         next_day = 1 if last_day >= 7 else last_day + 1
-    #         folder_name = f"day{next_day}_{today_short}"
-    #         target_folder = os.path.join(backup_root, folder_name)
-    #         os.makedirs(target_folder, exist_ok=True)
-    #         self.log(f"[AUTO BACKUP] Created new folder {folder_name}", "load")
-
-    #     try:
-    #         for folder in self.auto_backup_folders:
-    #             for root_dir, _, files in os.walk(folder):
-    #                 for file in files:
-    #                     src_file = os.path.join(root_dir, file)
-    #                     rel_path = os.path.relpath(src_file, folder)
-    #                     dest_file = os.path.join(target_folder, rel_path + ".backup")
-
-    #                     os.makedirs(os.path.dirname(dest_file), exist_ok=True)
-    #                     shutil.copy2(src_file, dest_file)
-
-    #         self.log(f"[AUTO BACKUP] Backup completed in {target_folder}", "load")
-    #     except Exception as e:
-    #         self.log(f"[ERROR] Auto Backup failed: {e}", "load")
-
-    # def perform_rotating_backup(self):
-    #     from datetime import datetime
-
-    #     today = datetime.now().strftime("%d-%m-%Y")
-    #     today_short = datetime.now().strftime("%d-%m-%y")
-    #     current_time = datetime.now().time()
-
-    #     backup_root = os.path.join(self.auto_backup_destination, "AutoBackup")
-    #     os.makedirs(backup_root, exist_ok=True)
-
-    #     pattern = re.compile(r"day(\d)_(\d{2}-\d{2}-\d{2})")
-    #     last_day = 0
-    #     last_date_obj = None
-    #     latest_folder_path = ""
-
-    #     for folder in os.listdir(backup_root):
-    #         match = pattern.match(folder)
-    #         if match:
-    #             day_num = int(match.group(1))
-    #             folder_date_str = match.group(2)
-
-    #             try:
-    #                 folder_date_obj = datetime.strptime(folder_date_str, "%d-%m-%y")
-    #             except:
-    #                 continue
-
-    #             if not last_date_obj or folder_date_obj > last_date_obj:
-    #                 last_day = day_num
-    #                 last_date_obj = folder_date_obj
-    #                 latest_folder_path = os.path.join(backup_root, folder)
-
-    #     # Decide whether to reuse or create new
-    #     target_folder = ""
-    #     if last_date_obj and last_date_obj.date() == datetime.now().date():
-    #         target_folder = latest_folder_path
-    #         self.log(f"[AUTO BACKUP] Appending to existing {os.path.basename(target_folder)}", "load")
-    #     else:
-    #         next_day = 1 if last_day >= 7 else last_day + 1
-    #         folder_name = f"day{next_day}_{today_short}"
-    #         target_folder = os.path.join(backup_root, folder_name)
-    #         os.makedirs(target_folder, exist_ok=True)
-    #         self.log(f"[AUTO BACKUP] Created new folder {folder_name}", "load")
-
-    #     try:
-    #         for folder in self.auto_backup_folders:
-    #             for root_dir, _, files in os.walk(folder):
-    #                 for file in files:
-    #                     src_file = os.path.join(root_dir, file)
-    #                     rel_path = os.path.relpath(src_file, folder)
-    #                     dest_file = os.path.join(target_folder, rel_path + ".backup")
-
-    #                     os.makedirs(os.path.dirname(dest_file), exist_ok=True)
-    #                     shutil.copy2(src_file, dest_file)
-
-    #         self.log(f"[AUTO BACKUP] Backup completed in {target_folder}", "load")
-    #     except Exception as e:
-    #         self.log(f"[ERROR] Auto Backup failed: {e}", "load")
-
-
-
-    # def perform_rotating_backup(self):
-    #     from datetime import datetime
-
-    #     today_full = datetime.now().strftime("%d-%m-%Y")  # → 12-05-2025
-    #     current_time = datetime.now().time()
-
-    #     backup_root = os.path.join(self.auto_backup_destination, "AutoBackup")
-    #     os.makedirs(backup_root, exist_ok=True)
-
-    #     # Match folders like day3_12-05-2025
-    #     pattern = re.compile(r"day(\d)_(\d{2}-\d{2}-\d{4})")
-    #     last_day = 0
-    #     last_date_obj = None
-    #     latest_folder_path = ""
-
-    #     for folder in os.listdir(backup_root):
-    #         match = pattern.match(folder)
-    #         if match:
-    #             day_num = int(match.group(1))
-    #             folder_date_str = match.group(2)
-
-    #             try:
-    #                 folder_date_obj = datetime.strptime(folder_date_str, "%d-%m-%Y")
-    #             except:
-    #                 continue
-
-    #             if not last_date_obj or folder_date_obj > last_date_obj:
-    #                 last_day = day_num
-    #                 last_date_obj = folder_date_obj
-    #                 latest_folder_path = os.path.join(backup_root, folder)
-
-    #     # Reuse or create folder
-    #     target_folder = ""
-    #     if last_date_obj and last_date_obj.date() == datetime.now().date():
-    #         target_folder = latest_folder_path
-    #         self.log(f"[AUTO BACKUP] Appending to existing {os.path.basename(target_folder)}", "load")
-    #     else:
-    #         next_day = 1 if last_day >= 7 else last_day + 1
-    #         folder_name = f"day{next_day}_{today_full}"
-    #         target_folder = os.path.join(backup_root, folder_name)
-    #         os.makedirs(target_folder, exist_ok=True)
-    #         self.log(f"[AUTO BACKUP] Created new folder {folder_name}", "load")
-
-    #     try:
-    #         for folder in self.auto_backup_folders:
-    #             for root_dir, _, files in os.walk(folder):
-    #                 for file in files:
-    #                     src_file = os.path.join(root_dir, file)
-    #                     rel_path = os.path.relpath(src_file, folder)
-    #                     dest_file = os.path.join(target_folder, rel_path + ".backup")
-
-    #                     os.makedirs(os.path.dirname(dest_file), exist_ok=True)
-    #                     shutil.copy2(src_file, dest_file)
-
-    #         self.log(f"[AUTO BACKUP] Backup completed in {target_folder}", "load")
-    #     except Exception as e:
-    #         self.log(f"[ERROR] Auto Backup failed: {e}", "load")
-
+ 
 
 
     def perform_rotating_backup(self):
@@ -1975,16 +1681,6 @@ class VWARScannerGUI:
 
 
 
-    # def save_auto_backup_settings(self):
-    #     config = {
-    #         "folders": self.auto_backup_folders,
-    #         "time": self.backup_time_var.get(),
-    #         "destination": self.auto_backup_destination
-    #     }
-    #     with open("auto_backup_config.json", "w") as f:
-    #         json.dump(config, f)
-
-
     def save_auto_backup_settings(self):
         config = {
             "running": self.auto_backup_running,
@@ -1996,53 +1692,8 @@ class VWARScannerGUI:
         with open(config_path, "w") as f:
             json.dump(config, f)
 
-    # def load_auto_backup_settings(self):
-    #     try:
-    #         with open("auto_backup_config.json", "r") as f:
-    #             config = json.load(f)
-    #             self.auto_backup_folders = config.get("folders", [])
-    #             self.backup_time_var.set(config.get("time", ""))
-    #             self.auto_backup_destination = config.get("destination", "")
+  
 
-    #             # Update UI labels
-    #             if self.auto_backup_folders:
-    #                 self.selected_folders_label.config(text="\n".join(self.auto_backup_folders))
-    #             if self.auto_backup_destination:
-    #                 self.auto_backup_dest_label.config(text=self.auto_backup_destination)
-
-    #             # Automatically start if settings are valid
-    #             if self.auto_backup_folders and self.backup_time_var.get() and self.auto_backup_destination:
-    #                 self.start_auto_backup()
-
-    #     except Exception as e:
-    #         self.log(f"[AUTO BACKUP] Failed to load settings: {e}", "load")
-
-    # def load_auto_backup_settings(self):
-    #     try:
-    #         with open("auto_backup_config.json", "r") as f:
-    #             config = json.load(f)
-    #             self.auto_backup_folders = config.get("folders", [])
-    #             self.backup_time_var.set(config.get("time", ""))
-    #             self.auto_backup_destination = config.get("destination", "")
-
-    #             # Update UI
-    #             if self.auto_backup_folders:
-    #                 self.selected_folders_label.config(text="\n".join(self.auto_backup_folders))
-    #             if self.auto_backup_destination:
-    #                 self.auto_backup_dest_label.config(text=self.auto_backup_destination)
-
-    #             # Start auto backup thread
-    #             if self.auto_backup_folders and self.backup_time_var.get() and self.auto_backup_destination:
-    #                 self.auto_backup_running = True
-    #                 self.start_button.config(state="disabled")
-    #                 self.stop_button.config(state="normal")
-    #                 self.auto_backup_thread = threading.Thread(target=self.auto_backup_worker, daemon=True)
-    #                 self.auto_backup_thread.start()
-    #                 self.animate_auto_backup_status()
-    #                 self.log("[AUTO BACKUP] Auto-started based on saved settings.", "load")
-
-    #     except Exception as e:
-    #         self.log(f"[AUTO BACKUP] Failed to load settings: {e}", "load")
 
     def load_auto_backup_settings(self):
         config_path = os.path.join(os.getcwd(), "auto_backup_config.json")
@@ -2073,127 +1724,6 @@ class VWARScannerGUI:
             self.auto_status_label.config(text="Status: Stopped", fg="red")
 
 
-# EXCLUDED_PATHS = [
-#     # "C:\\Windows",
-#     # "C:\\Program Files",
-#     # "C:\\Program Files (x86)",
-#     "C:\\$Recycle.Bin",
-#     "C:\\System Volume Information"
-# ]
-
-
-
-
-
-
-
-class FileMonitorHandler(FileSystemEventHandler):
-    def __init__(self, scanner):
-        self.scanner = scanner  # Reference to the VWAR scanner instance
-    
-    def on_created(self, event):
-        if not event.is_directory:
-            file_path = event.src_path
-            self.prompt_scan(file_path)
-
-    def prompt_scan(self, file_path):
-        def scan_decision():
-            threading.Thread(target=self.scanner.scan_file, args=(file_path,), daemon=True).start()
-        self.scanner.root.after(0, scan_decision)
-        
-
-
-
-# class RealTimeMonitor:
-#     def __init__(self, app_ref, paths=None):
-#         self.app = app_ref
-#         self.observer = Observer()
-#         self.paths = paths or []
-#         self.event_handler = self.create_event_handler()
-#         self.running = False
-
-#     def create_event_handler(self):
-#         class Handler(FileSystemEventHandler):
-#             def on_created(inner_self, event):
-#                 if not event.is_directory:
-#                     file_path = os.path.abspath(event.src_path)
-#                     # Skip excluded paths
-#                     if any(file_path.startswith(ex) for ex in EXCLUDED_PATHS):
-#                         return
-#                     self.app.log(f"[MONITOR] New file detected: {file_path}", "load")
-#                     self.app.scan_file(file_path)
-#         return Handler()
-
-#     def start(self):
-#         self.running = True
-#         for path in self.paths:
-#             for root, dirs, _ in os.walk(path):
-#                 if any(root.startswith(ex) for ex in EXCLUDED_PATHS):
-#                     continue
-#                 try:
-#                     self.observer.schedule(self.event_handler, root, recursive=True)
-#                 except Exception as e:
-#                     print(f"[WARNING] Cannot watch {root}: {e}")
-#         self.observer.start()
-
-#     def stop(self):
-#         self.running = False
-#         self.observer.stop()
-#         self.observer.join()
-
-
-
-
-# class RealTimeMonitor(FileSystemEventHandler):
-#     def __init__(self, gui, watch_paths):
-#         self.gui = gui
-#         self.watch_paths = watch_paths if isinstance(watch_paths, list) else [watch_paths]
-#         self.observer = Observer()
-#         self.recent_events = {}
-#         self.excluded_folders = ["quarantine", "yara", "VWARbackup","C:\\$Recycle.Bin","C:\\System Volume Information"]
-
-#     def start(self):
-#         for path in self.watch_paths:
-#             try:
-#                 self.observer.schedule(self, path=path, recursive=True)
-#                 print(f"[DEBUG] Monitoring started on: {path}")
-#             except Exception as e:
-#                 print(f"[ERROR] Could not start monitoring on {path}: {e}")
-#         self.observer.start()
-
-#     def stop(self):
-#         self.observer.stop()
-#         self.observer.join()
-
-#     def is_excluded(self, path):
-#         return any(folder.lower() in path.lower() for folder in self.excluded_folders)
-
-#     def on_created(self, event):
-#         if event.is_directory:
-#             return
-
-#         path = event.src_path
-#         now = time.time()
-
-#         # Debounce
-#         last_time = self.recent_events.get(path, 0)
-#         if now - last_time < 5:
-#             return
-#         self.recent_events[path] = now
-
-#         # Skip excluded folders
-#         if self.is_excluded(path):
-#             print(f"[DEBUG] Skipping excluded path: {path}")
-#             return
-
-#         # Filter file types (optional)
-#         # if not path.lower().endswith((".exe", ".dll", ".docx")):
-#         #     return
-
-#         print(f"[DEBUG] New file detected: {path}")
-#         self.gui.log(f"[INFO] New file created: {path}", "load")
-#         self.gui.scan_file(path)
-
 
 class RealTimeMonitor(FileSystemEventHandler):
     def __init__(self, gui, watch_paths):
@@ -2202,37 +1732,34 @@ class RealTimeMonitor(FileSystemEventHandler):
         self.watch_paths = watch_paths if isinstance(watch_paths, list) else [watch_paths]
         self.observer = Observer()
         self.recent_events = {}
-        print()
 
-        # Folders to exclude
-        # self.excluded_folders = [
-        #     "quarantine", "yara", "VWARbackup",
-        #     "C:\\$Recycle.Bin", "C:\\System Volume Information",
-        #     "C:\\Windows", "C:\\ProgramData"
-        # ]
+        
+        user = getpass.getuser()
         
         
         self.excluded_folders = [
-            "quarantine", "backup", "yara", "VWARbackup",
-            "C:\\$Recycle.Bin", "C:\\System Volume Information",
-            "C:\\Windows", "C:\\ProgramData", "AppData\\Local\\Packages", "Cache", "Temp"
-        ]
+        # os.path.join("C:\\Users", user, "AppData", "Local", "Packages"),
+        # os.path.join("C:\\Users", user, "AppData", "Local", "Temp"),
+        os.path.join("C:\\Users", user, "AppData"),
+        os.path.join("C:\\Windows"),
+        os.path.join("C:\\$Recycle.Bin"),
+        os.path.join("C:\\ProgramData"),
+        "System Volume Information",
+        os.path.join(os.getcwd(), "quarantine"),
+        os.path.join(os.getcwd(), "backup"),
+        os.path.join(os.getcwd(), "yara"),
+        os.path.join(os.getcwd(), "VWARbackup")
+    ]
 
         # Unwanted file types and patterns
         self.excluded_extensions = (
             ".tmp", ".log", ".lock", ".crdownload", ".part", ".ds_store", "thumbs.db"
         )
         self.excluded_prefixes = ("~$",)
+        
+        
+        self.pending_scan_files = set()
 
-    # def start(self):
-    #     for path in self.watch_paths:
-    #         try:
-    #             self.observer.schedule(self, path=path, recursive=True)
-    #             print(f"[DEBUG] Monitoring started on: {path}")
-    #         except Exception as e:
-    #             print(f"[ERROR] Could not start monitoring on {path}: {e}")
-    #     self.observer.start()
-    
     
     def start(self):
         print("[DEBUG] Watching paths:")
@@ -2244,13 +1771,32 @@ class RealTimeMonitor(FileSystemEventHandler):
             except Exception as e:
                 print(f"[ERROR] Could not start monitoring on {path}: {e}")
         self.observer.start()
+        
+        
+        
+        
+        
 
     def stop(self):
         self.observer.stop()
         self.observer.join()
 
+    
+    
     def is_excluded(self, path):
-        return any(folder.lower() in path.lower() for folder in self.excluded_folders)
+        path = os.path.abspath(path).lower()
+        for folder in self.excluded_folders:
+            folder = os.path.abspath(folder).lower()
+            if folder in path:
+                # print(f"[SKIPPED] Folder excluded: {path} (matched: {folder})")
+                return True
+        return False
+
+    # def is_excluded(self, path):
+    #     path = os.path.abspath(path).lower()
+    #     return any(os.path.abspath(folder).lower() in path for folder in self.excluded_folders)
+
+
 
     def is_excluded_file(self, path):
         filename = os.path.basename(path).lower()
@@ -2264,12 +1810,27 @@ class RealTimeMonitor(FileSystemEventHandler):
             return True
         return False
 
+
+
+
+    def on_modified(self, event):
+            if event.is_directory:
+                return
+            path = event.src_path
+            if self.is_excluded(path) or self.is_excluded_file(path):
+                return
+            print(f"[DEBUG] File modified: {path}")
+
+            # Delay and scan like on_created
+            threading.Thread(target=self.wait_and_scan_file, args=(path,), daemon=True).start()
+            # self.gui.scan_file(path)
+
+
     def on_created(self, event):
         if event.is_directory:
             return
 
         path = event.src_path
-        print(f"[DEBUG] File event detected: {path}")  # ✅ always print the path
 
         now = time.time()
         last_time = self.recent_events.get(path, 0)
@@ -2277,123 +1838,54 @@ class RealTimeMonitor(FileSystemEventHandler):
             return
         self.recent_events[path] = now
 
-        if self.is_excluded(path):
-            # print(f"[DEBUG] Skipping excluded path: {path}")
+        if self.is_excluded(path) or self.is_excluded_file(path):
+            return
+        
+        print(f"[DEBUG] File event detected: {path}")
+        # self.gui.scan_file(path)
+        # Delay scanning in a background thread
+        threading.Thread(target=self.wait_and_scan_file, args=(path,), daemon=True).start()
+
+
+    def wait_and_scan_file(self, path):
+        """Wait until the file becomes accessible before scanning it."""
+        max_wait = 10  # seconds
+        waited = 0
+
+        while waited < max_wait:
+            if os.path.exists(path) and os.path.isfile(path):
+                try:
+                    with open(path, 'rb'):
+                        break  # file is accessible
+                except Exception:
+                    pass
+            time.sleep(0.5)
+            waited += 0.5
+
+        if waited >= max_wait:
+            self.gui.log(f"[WARNING] File still not accessible, skipping: {path}", "load")
             return
 
-        if self.is_excluded_file(path):
-            # print(f"[DEBUG] Skipping excluded file: {path}")
-            return
-
-        print(f"[DEBUG] New file detected and scanned: {path}")
-        self.gui.log(f"[INFO] New file created: {path}", "load")
-        self.gui.scan_file(path)
-
+        if self.gui.monitoring_active:
+            self.gui.scan_file(path)
+            print(f"[DEBUG] File ready, scanned: {path}")
+        else:
+            self.pending_scan_files.add(path)
+            print(f"[INFO] Stored for future scan: {path}")
 
 
-
-
-# class RealTimeMonitor(FileSystemEventHandler):
-#     def __init__(self, gui, watch_paths):
-#         self.gui = gui
-#         self.watch_paths = watch_paths if isinstance(watch_paths, list) else [watch_paths]
-#         self.observer = Observer()
-#         self.recent_events = {}
-
-#         # ✅ Folders to exclude (system + app)
-#         self.excluded_folders = [
-#             "quarantine", "backup", "yara", "VWARbackup",
-#             "C:\\$Recycle.Bin", "C:\\System Volume Information",
-#             "C:\\Windows", "C:\\ProgramData", "AppData"
-#         ]
-
-#         # ✅ File types or patterns to exclude
-#         self.excluded_extensions = (
-#             ".tmp", ".log", ".lock", ".crdownload", ".part", ".ds_store", "thumbs.db"
-#         )
-#         self.excluded_prefixes = ("~$",)
-
-#     def start(self):
-#         for path in self.watch_paths:
-#             try:
-#                 self.observer.schedule(self, path=path, recursive=True)
-#                 print(f"[DEBUG] Monitoring started on: {path}")
-#             except Exception as e:
-#                 print(f"[ERROR] Could not start monitoring on {path}: {e}")
-#         self.observer.start()
-
-#     def stop(self):
-#         self.observer.stop()
-#         self.observer.join()
-
-#     def is_excluded(self, path):
-#         return any(folder.lower() in path.lower() for folder in self.excluded_folders)
-
-#     def is_excluded_file(self, path):
-#         filename = os.path.basename(path).lower()
-#         # Skip based on extension or prefix
-#         if filename.endswith(self.excluded_extensions) or filename.startswith(self.excluded_prefixes):
-#             return True
-#         # Skip empty files
-#         try:
-#             if os.path.exists(path) and os.path.getsize(path) == 0:
-#                 return True
-#         except Exception as e:
-#             print(f"[WARNING] Could not check file size: {path} ({e})")
-#             return True
-#         return False
-
-#     def on_created(self, event):
-#         if event.is_directory:
-#             return
-
-#         path = event.src_path
-#         now = time.time()
-
-#         # Debounce repeated triggers
-#         last_time = self.recent_events.get(path, 0)
-#         if now - last_time < 5:
-#             return
-#         self.recent_events[path] = now
-
-#         if self.is_excluded(path):
-#             print(f"[DEBUG] Skipping excluded folder path: {path}")
-#             return
-
-#         if self.is_excluded_file(path):
-#             print(f"[DEBUG] Skipping excluded file type or empty file: {path}")
-#             return
-
-#         print(f"[DEBUG] New file detected: {path}")
-#         self.gui.log(f"[INFO] New file created: {path}", "load")
-#         self.gui.scan_file(path)
-
-
-# class RealTimeMonitor:
-#     def __init__(self, scanner, watch_path):
-#         self.scanner = scanner  # VWAR scanner instance
-#         self.watch_path = watch_path  # Directory to monitor
-#         self.observer = Observer()
-
-#     # def start(self):
-#     #     """Start monitoring for new files."""
-#     #     event_handler = FileMonitorHandler(self.scanner)
-#     #     self.observer.schedule(event_handler, self.watch_path, recursive=True)
-#     #     monitoring_thread = threading.Thread(target=self.observer.start, daemon=True)
-#     #     monitoring_thread.start()
     
-#     def start(self):
-#         event_handler = FileMonitorHandler(self.scanner)
-#         self.observer.schedule(event_handler, self.watch_path, recursive=True)
-#         self.observer.start()  # Start directly — NOT in a new thread
+   
 
-#     def stop(self):
-#         """Stop monitoring for new files."""
-#         self.observer.stop()
-#         self.observer.join()
+    def process_pending_files(self):
+        for path in list(self.pending_scan_files):
+            if os.path.exists(path):
+                print(f"[INFO] Processing pending file: {path}")
+                self.gui.scan_file(path)
+        self.pending_scan_files.clear()
 
 
-# 
+
 
 
 
