@@ -161,13 +161,23 @@ def activate(key):
             if server_processor and server_motherboard:
                 if current_processor == server_processor and current_motherboard == server_motherboard:
                     # ✅ Re-activate on the same PC
+                    # activation_data = {
+                    #     "id": record["id"],
+                    #     "username": record["username"],
+                    #     "password": record["password"],
+                    #     "processor_id": current_processor,
+                    #     "motherboard_id": current_motherboard
+                    # }
+                    
                     activation_data = {
                         "id": record["id"],
                         "username": record["username"],
                         "password": record["password"],
                         "processor_id": current_processor,
-                        "motherboard_id": current_motherboard
+                        "motherboard_id": current_motherboard,
+                        "valid_till": record.get("valid_till", "")
                     }
+
                     with open("activation.json", "w") as f:
                         json.dump(activation_data, f)
                     messagebox.showinfo("Info", "This system is already activated.")
@@ -189,13 +199,22 @@ def activate(key):
             try:
                 post_response = requests.post(API_POST, json=payload)
                 if post_response.status_code == 200:
+                    # activation_data = {
+                    #     "id": record["id"],
+                    #     "username": record["username"],
+                    #     "password": record["password"],
+                    #     "processor_id": current_processor,
+                    #     "motherboard_id": current_motherboard
+                    # }
                     activation_data = {
-                        "id": record["id"],
-                        "username": record["username"],
-                        "password": record["password"],
-                        "processor_id": current_processor,
-                        "motherboard_id": current_motherboard
-                    }
+                            "id": record["id"],
+                            "username": record["username"],
+                            "password": record["password"],
+                            "processor_id": current_processor,
+                            "motherboard_id": current_motherboard,
+                            "valid_till": record.get("valid_till", "")
+                        }
+
                     with open("activation.json", "w") as f:
                         json.dump(activation_data, f)
 
