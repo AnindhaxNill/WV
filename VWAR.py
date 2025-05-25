@@ -44,24 +44,60 @@ if __name__ == "__main__":
 
 # --- End admin check block ---
 
-
+from datetime import datetime
 
 def check_activation():
     if not os.path.exists("activation.json"):
         messagebox.showerror("Activation Required", "You must activate the software first.")
         sys.exit()
+
     try:
-        with open("activation.json", "r") as f:  # <-- fix here
+        with open("activation.json", "r") as f:
             data = json.load(f)
 
-        # Optional: Validate structure
+        # Validate required keys
         if not isinstance(data.get("processor_id"), str) or not isinstance(data.get("motherboard_id"), str):
             messagebox.showerror("Activation Error", "Activation file structure is invalid.")
+            sys.exit()
+
+        # 🧠 New: Validate license date
+        valid_till_str = data.get("valid_till")
+        if not valid_till_str:
+            messagebox.showerror("License Error", "Missing license expiry date.")
+            sys.exit()
+
+        try:
+            valid_till = datetime.strptime(valid_till_str, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            messagebox.showerror("License Error", f"Invalid date format: {valid_till_str}")
+            sys.exit()
+
+        now = datetime.now()
+        if now > valid_till:
+            messagebox.showerror("License Expired", f"Your license expired on {valid_till.strftime('%Y-%m-%d %H:%M:%S')}.\nPlease renew your license.")
             sys.exit()
 
     except Exception as e:
         messagebox.showerror("Activation File Corrupted", f"Invalid activation data.\nError: {e}")
         sys.exit()
+
+
+# def check_activation():
+#     if not os.path.exists("activation.json"):
+#         messagebox.showerror("Activation Required", "You must activate the software first.")
+#         sys.exit()
+#     try:
+#         with open("activation.json", "r") as f:  # <-- fix here
+#             data = json.load(f)
+
+#         # Optional: Validate structure
+#         if not isinstance(data.get("processor_id"), str) or not isinstance(data.get("motherboard_id"), str):
+#             messagebox.showerror("Activation Error", "Activation file structure is invalid.")
+#             sys.exit()
+
+#     except Exception as e:
+#         messagebox.showerror("Activation File Corrupted", f"Invalid activation data.\nError: {e}")
+#         sys.exit()
 
 check_activation()
 
@@ -133,7 +169,7 @@ def decode_base64(encoded_string):
             return f"Decoding Error: {e}"
         
         
-CURRENT_VERSION = "1.0.1"
+CURRENT_VERSION = "1.0.0"
 
 def check_for_updates():
     try:
@@ -157,7 +193,10 @@ class VWARScannerGUI:
     def __init__(self, root):
         print("[DEBUG] Entering VWARScannerGUI")
         self.root = root
+        self.load_activation_info()
+        
         self.root.title("VWAR Scanner")
+        
         print("[DEBUG] Tk root and title set")
         # self.watch_paths = "D:\soft"  # Change this to the directory you want to monitor
         self.watch_paths = self.get_all_accessible_drives()
@@ -175,7 +214,7 @@ class VWARScannerGUI:
             self.root,
             text="Status: Running ●",
             font=("Inter", 12, "bold"),
-            bg="#009AA5",
+            bg="#FFFFFF",
             fg="green"
         )
         print("[DEBUG] Status label created")
@@ -187,7 +226,7 @@ class VWARScannerGUI:
             self.root,
             text="Status: Running ●",
             font=("Inter", 12, "bold"),
-            bg="#009AA5",
+            bg="#FFFFFF",
             fg="green"
         )
         self.home_scan_status_label.place(x=110, y=570)
@@ -274,7 +313,7 @@ class VWARScannerGUI:
 
         # Show home page initially
         self.show_page("home")
-
+        
 
 
         print("[DEBUG] VWARScannerGUI setup complete")  # ✅ Helps confirm init is done
@@ -286,7 +325,15 @@ class VWARScannerGUI:
         check_for_updates()
 
 
-
+    def load_activation_info(self):
+        try:
+            with open("activation.json", "r") as f:
+                data = json.load(f)
+                self.activated_user = data.get("username", "Unknown")
+                self.valid_till = data.get("valid_till", "Unknown")
+        except:
+            self.activated_user = "Unknown"
+            self.valid_till = "Unknown"
 
 
     def check_for_updates():
@@ -442,7 +489,7 @@ class VWARScannerGUI:
         home_page = Frame(self.root, bg="#009AA5")
         self.pages["home"] = home_page
 
-        Label(home_page, text="VWAR Scanner", font=("Inter", 24), bg="#009AA5", fg="white").place(x=420, y=50)
+        Label(home_page, text="VWAR Scanner", font=("Inter", 24), bg="#009AA5", fg="white").place(x=400, y=50)
 
         Button(home_page, text="Scanning", command=lambda: self.show_page("scanning"), bg="blue", fg="white",
                font=("Inter", 16)).place(x=400, y=200, width=200, height=50)
@@ -470,7 +517,7 @@ class VWARScannerGUI:
             self.root,
             text="Status: Stopped",
             font=("Inter", 12, "bold"),
-            bg="#009AA5",
+            bg="#FFFFFF",
             fg="red"
         )
         self.home_scan_status_label.place(x=650, y=430)
@@ -479,19 +526,23 @@ class VWARScannerGUI:
         contact_frame = LabelFrame(home_page, text="About / Contact Us", bg="#009AA5", fg="white", font=("Arial", 12, "bold"), padx=10, pady=10)
         contact_frame.place(x=20, y=500, width=600, height=170)
 
-        Label(contact_frame, text="🛡 VWAR Scanner", bg="#009AA5", fg="white", font=("Arial", 10, "bold")).pack(anchor="w")
+        
         Label(contact_frame, text=f"Version: {CURRENT_VERSION}", bg="#009AA5", fg="white", font=("Arial", 10)).pack(anchor="w")
         Label(contact_frame, text="Developer: Anindha Mahalanabish", bg="#009AA5", fg="white", font=("Arial", 10)).pack(anchor="w")
         Label(contact_frame, text="Email: vwarsecurity@example.com", bg="#009AA5", fg="white", font=("Arial", 10)).pack(anchor="w")
         Label(contact_frame, text="Website: www.vwarsec.com", bg="#009AA5", fg="white", font=("Arial", 10)).pack(anchor="w")
         Label(contact_frame, text="Support: support@vwarsec.com", bg="#009AA5", fg="white", font=("Arial", 10)).pack(anchor="w")
 
+        
+     
+        Label(home_page, text=f"Activated User: {self.activated_user}", font=("Inter", 12), bg="white", fg="black").place(x=420, y=90)
+        Label(home_page, text=f"Valid Till: {self.valid_till}", font=("Inter", 12), bg="white", fg="black").place(x=420, y=120)
+
+        
+  
   
 
-    def create_scanning_page(self):
-        
-        
-
+    def create_scanning_page(self):      
         self.fetch_and_generate_yara_rules()
         self.root.after(100, self.load_rules)
         
@@ -840,7 +891,7 @@ class VWARScannerGUI:
             auto_scanning_page,
             text="Status: Stopped",
             font=("Inter", 12, "bold"),
-            bg="#009AA5",
+            bg="#FFFFFF",
             fg="red"
         )
         self.auto_scan_status_label.place(x=20, y=470)
@@ -1546,7 +1597,7 @@ class VWARScannerGUI:
         
         
         self.auto_status_label = Label(self.auto_backup_frame, text="Status: Stopped", font=("Inter", 12, "bold"),
-                               bg="#009AA5", fg="white")
+                               bg="#FFFFFF", fg="white")
         self.auto_status_label.place(x=420, y=400)
 
         self.load_auto_backup_settings()
